@@ -1,7 +1,9 @@
 from django.contrib import admin
 
-from .models import CartItem, WishlistItem
+from .models import CartItem
 
 
-admin.site.register(CartItem)
-admin.site.register(WishlistItem)
+@admin.register(CartItem)
+class CartItemAdmin(admin.ModelAdmin):
+    list_display = ['user', 'product', 'quantity', 'updated_at']
+    search_fields = ['user__email', 'product__name']

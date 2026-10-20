@@ -1,10 +1,8 @@
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 
-from .views import AdminProductViewSet, ProductViewSet, SellerProductViewSet
+from .views import ProductViewSet
 
-router = DefaultRouter()
-router.register('seller/manage', SellerProductViewSet, basename='seller-product')
-router.register('admin/manage', AdminProductViewSet, basename='admin-product')
+router = SimpleRouter()
 router.register('', ProductViewSet, basename='product')
 
 urlpatterns = router.urls

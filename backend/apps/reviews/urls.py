@@ -1,8 +1,8 @@
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 
 from .views import ReviewViewSet
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register('', ReviewViewSet, basename='review')
 
 urlpatterns = router.urls

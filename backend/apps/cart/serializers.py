@@ -1,26 +1,40 @@
 from rest_framework import serializers
 
-from apps.products.models import Product
-from apps.products.serializers import ProductSerializer
+from apps.producers.serializers import ProducerBriefSerializer
+from apps.products.serializers import ProductListSerializer
 
-from .models import CartItem, WishlistItem
-
-
-class CartItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.filter(active=True, approved=True), source='product', write_only=True)
-
-    class Meta:
-        model = CartItem
-        fields = ['id', 'product', 'product_id', 'quantity', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+from .services import MAX_LINE_QUANTITY
 
 
-class WishlistItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.filter(active=True, approved=True), source='product', write_only=True)
+class CartLineSerializer(serializers.Serializer):
+    id = serializers.IntegerField(source='item.id')
+    product = ProductListSerializer(source='item.product')
+    quantity = serializers.IntegerField(source='item.quantity')
+    line_total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    issue = serializers.CharField(allow_null=True)
 
-    class Meta:
-        model = WishlistItem
-        fields = ['id', 'product', 'product_id', 'created_at']
-        read_only_fields = ['id', 'created_at']
+
+class CartGroupSerializer(serializers.Serializer):
+    producer = ProducerBriefSerializer()
+    subtotal = serializers.DecimalField(max_digits=12, decimal_places=2)
+    delivery_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class CartSerializer(serializers.Serializer):
+    items = CartLineSerializer(many=True)
+    groups = CartGroupSerializer(many=True)
+    subtotal = serializers.DecimalField(max_digits=12, decimal_places=2)
+    delivery_total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    item_count = serializers.IntegerField()
+    can_checkout = serializers.BooleanField()
+
+
+class AddToCartSerializer(serializers.Serializer):
+    product_slug = serializers.SlugField(max_length=180)
+    quantity = serializers.IntegerField(min_value=1, max_value=MAX_LINE_QUANTITY, default=1)
+
+
+class UpdateCartItemSerializer(serializers.Serializer):
+    quantity = serializers.IntegerField(min_value=1, max_value=MAX_LINE_QUANTITY)

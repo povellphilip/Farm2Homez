@@ -1,21 +1,26 @@
 from rest_framework import serializers
 
-from apps.products.models import Product
-from apps.products.serializers import ProductSerializer
-
 from .models import Review
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(queryset=Product.objects.filter(active=True, approved=True), source='product', write_only=True)
+    reviewer = serializers.SerializerMethodField()
+    product_slug = serializers.SlugField(source='product.slug', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(max_length=2000, required=False, allow_blank=True, default='')
 
     class Meta:
         model = Review
-        fields = ['id', 'customer', 'product', 'product_id', 'rating', 'comment', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'customer', 'created_at', 'updated_at']
+        fields = ['id', 'product_slug', 'product_name', 'reviewer', 'rating', 'comment', 'created_at', 'updated_at']
 
-    def validate_rating(self, value):
-        if value < 1 or value > 5:
-            raise serializers.ValidationError('Rating must be between 1 and 5.')
-        return value
+    def get_reviewer(self, review) -> str:
+        # Public reviews show a first name only.
+        return (review.consumer.full_name or 'Customer').split()[0]
+
+
+class ReviewCreateSerializer(ReviewSerializer):
+    product = serializers.SlugField(write_only=True)
+
+    class Meta(ReviewSerializer.Meta):
+        fields = ReviewSerializer.Meta.fields + ['product']

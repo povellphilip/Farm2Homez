@@ -1,10 +1,13 @@
-from rest_framework.routers import DefaultRouter
+from django.urls import path
+from rest_framework.routers import SimpleRouter
 
-from .views import AdminOrderViewSet, CustomerOrderViewSet, SellerOrderViewSet
+from .views import CheckoutView, ConsumerOrderViewSet, PaymentMethodsView
 
-router = DefaultRouter()
-router.register('customer', CustomerOrderViewSet, basename='customer-order')
-router.register('seller', SellerOrderViewSet, basename='seller-order')
-router.register('admin', AdminOrderViewSet, basename='admin-order')
+router = SimpleRouter()
+router.register('', ConsumerOrderViewSet, basename='order')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('checkout/', CheckoutView.as_view(), name='checkout'),
+    path('payment-methods/', PaymentMethodsView.as_view(), name='payment-methods'),
+    *router.urls,
+]
