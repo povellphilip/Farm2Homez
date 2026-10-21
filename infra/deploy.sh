@@ -62,8 +62,12 @@ case "$(stack_status)" in
     step "A deployment is already running - waiting for it to finish"
     while [[ "$(stack_status)" == *_IN_PROGRESS ]]; do sleep 20; done ;;
 esac
+RETRY_IN_PLACE=false
 case "$(stack_status)" in
-  CREATE_FAILED|ROLLBACK_COMPLETE|ROLLBACK_FAILED|DELETE_FAILED)
+  CREATE_FAILED|UPDATE_FAILED)
+    # Resources that already work (database, CloudFront...) are kept; only the failed part is retried
+    RETRY_IN_PLACE=true ;;
+  ROLLBACK_COMPLETE|ROLLBACK_FAILED|DELETE_FAILED)
     step "Removing the failed stack from a previous attempt (a few minutes)"
     delete_stack ;;
 esac
@@ -117,23 +121,31 @@ PARAMS=(
 [[ -n "${ALERT_EMAIL:-}" ]] && PARAMS+=("AlertEmail=$ALERT_EMAIL")
 [[ "$PG_VERSION" == 17.* ]] && PARAMS+=("DBEngineVersion=$PG_VERSION")
 
-EXTRA_ARGS=()
+run_deploy() {
+  aws cloudformation deploy \
+    --template-file "$ROOT/infra/farm2homez.yaml" \
+    --stack-name "$STACK" \
+    --parameter-overrides "${PARAMS[@]}" \
+    --no-fail-on-empty-changeset "$@"
+}
 if [[ "$(stack_status)" == NONE ]]; then
   step "Creating the AWS infrastructure - this takes about 20 minutes (database + CloudFront are the slow parts)"
-  # Keep resources on failure so the cause can be inspected (the next run cleans up)
-  EXTRA_ARGS+=(--disable-rollback)
+elif $RETRY_IN_PLACE; then
+  step "Retrying the previous deployment from where it failed (about 10 minutes)"
 else
   step "Updating the AWS infrastructure and rolling out the new backend (5-15 minutes)"
 fi
 echo "Watch progress: CloudFormation console -> Stacks -> $STACK -> Events"
-if ! aws cloudformation deploy \
-    --template-file "$ROOT/infra/farm2homez.yaml" \
-    --stack-name "$STACK" \
-    --parameter-overrides "${PARAMS[@]}" \
-    "${EXTRA_ARGS[@]}" \
-    --no-fail-on-empty-changeset; then
-  show_failures
-  exit 1
+# --disable-rollback keeps resources on failure so the cause can be inspected and the next run can retry
+if ! run_deploy --disable-rollback; then
+  if $RETRY_IN_PLACE && [[ "$(stack_status)" == CREATE_FAILED ]]; then
+    step "The failed stack could not be retried in place - recreating it (about 25 minutes)"
+    delete_stack
+    run_deploy --disable-rollback || { show_failures; exit 1; }
+  else
+    show_failures
+    exit 1
+  fi
 fi
 
 # ------------------------------------------------------------------ frontend

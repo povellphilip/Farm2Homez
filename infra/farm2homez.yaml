@@ -465,7 +465,8 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
             # Backend version: ${BackendVersion}
-            set -euxo pipefail
+            # -E: the ERR trap also fires inside functions (e.g. a failing `manage migrate`)
+            set -eEuxo pipefail
             exec > >(tee -a /var/log/farm2homez-bootstrap.log) 2>&1
 
             # The setup log is copied to the artifacts bucket (outside this stack) so it survives a failed deploy

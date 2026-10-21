@@ -100,15 +100,14 @@ DATABASES = {
         default=config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}'),
         conn_max_age=600,
         conn_health_checks=True,
-        # Connection pooling for PostgreSQL
-        **({
-            'OPTIONS': {
-                'connect_timeout': 10,
-                'options': '-c statement_timeout=30000'
-            }
-        } if 'postgres' in config('DATABASE_URL', default='') else {})
     )
 }
+# dj_database_url.config() has no OPTIONS argument, so PostgreSQL options are set afterwards
+if DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 10,
+        'options': '-c statement_timeout=30000',
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
