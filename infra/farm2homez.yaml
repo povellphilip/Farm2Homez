@@ -468,11 +468,23 @@ Resources:
             set -euxo pipefail
             exec > >(tee -a /var/log/farm2homez-bootstrap.log) 2>&1
 
-            dnf install -y python3.11 python3.11-pip amazon-cloudwatch-agent aws-cfn-bootstrap tar gzip
-            signal() { /opt/aws/bin/cfn-signal -e "$1" --stack ${AWS::StackName} --resource AppAutoScalingGroup --region ${AWS::Region} || true; }
-            trap 'signal 1' ERR
+            # The setup log is copied to the artifacts bucket (outside this stack) so it survives a failed deploy
+            upload_log() { aws s3 cp /var/log/farm2homez-bootstrap.log s3://${ArtifactBucket}/logs/bootstrap-latest.log --region ${AWS::Region} --only-show-errors || true; }
+            signal() {
+              echo "Sending CloudFormation signal: exit code $1"
+              upload_log
+              CFN_SIGNAL=$(command -v cfn-signal || echo /opt/aws/bin/cfn-signal)
+              "$CFN_SIGNAL" -e "$1" --stack ${AWS::StackName} --resource AppAutoScalingGroup --region ${AWS::Region} || echo "WARNING: cfn-signal failed"
+            }
+            trap 'echo "SETUP FAILED at line $LINENO"; signal 1' ERR
+            upload_log
 
-            mkdir -p /var/log/farm2homez
+            dnf install -y aws-cfn-bootstrap
+            dnf install -y python3.11 python3.11-pip tar gzip
+            dnf install -y amazon-cloudwatch-agent || echo "WARNING: CloudWatch agent not installed"
+            upload_log
+
+            mkdir -p /var/log/farm2homez /opt/aws/amazon-cloudwatch-agent/etc
             cat > /opt/aws/amazon-cloudwatch-agent/etc/farm2homez.json <<'CWCONFIG'
             {
               "logs": {
@@ -495,7 +507,7 @@ Resources:
             }
             CWCONFIG
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
-              -c file:/opt/aws/amazon-cloudwatch-agent/etc/farm2homez.json
+              -c file:/opt/aws/amazon-cloudwatch-agent/etc/farm2homez.json || echo "WARNING: CloudWatch agent did not start"
 
             # Code
             useradd --system --create-home --home-dir /opt/farm2homez farm2homez || true
@@ -506,12 +518,18 @@ Resources:
             python3.11 -m venv /opt/farm2homez/venv
             /opt/farm2homez/venv/bin/pip install --quiet --upgrade pip
             /opt/farm2homez/venv/bin/pip install --quiet -r "$APP/requirements.txt"
+            upload_log
 
             # Configuration: secrets come from SSM Parameter Store via the LabRole instance profile
             param() { aws ssm get-parameter --region ${AWS::Region} --with-decryption --name "${SsmPrefix}/$1" --query Parameter.Value --output text 2>/dev/null || true; }
             TOKEN=$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
             PRIVATE_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
             SITE=${Distribution.DomainName}
+            DB_PASSWORD=$(param db-password)
+            if [ -z "$DB_PASSWORD" ]; then
+              echo "ERROR: could not read ${SsmPrefix}/db-password from SSM Parameter Store (re-run deploy.sh with PLAIN_PARAMS=1)"
+              false
+            fi
             cat > "$APP/.env" <<ENVFILE
             ENVIRONMENT=production
             DEBUG=False
@@ -525,7 +543,7 @@ Resources:
             CSRF_TRUSTED_ORIGINS=https://$SITE
             SECURE_SSL_REDIRECT=False
             NUM_PROXIES=2
-            DATABASE_URL=postgres://farm2homez:$(param db-password)@${Database.Endpoint.Address}:${Database.Endpoint.Port}/farm2homez
+            DATABASE_URL=postgres://farm2homez:$DB_PASSWORD@${Database.Endpoint.Address}:${Database.Endpoint.Port}/farm2homez
             AWS_REGION=${AWS::Region}
             AWS_MEDIA_BUCKET=${MediaBucket}
             MEDIA_BASE_URL=https://$SITE
@@ -548,6 +566,7 @@ Resources:
             manage collectstatic --noinput
             manage seed_database || true
             manage seed_data || true
+            upload_log
 
             cat > /etc/systemd/system/farm2homez.service <<'UNIT'
             [Unit]
@@ -558,6 +577,7 @@ Resources:
             [Service]
             User=farm2homez
             WorkingDirectory=/opt/farm2homez/app
+            Environment=WEB_CONCURRENCY=3 GUNICORN_THREADS=2 PORT=8000
             ExecStart=/opt/farm2homez/venv/bin/gunicorn config.wsgi:application --config gunicorn.conf.py --access-logfile /var/log/farm2homez/access.log --error-logfile /var/log/farm2homez/app.log --capture-output
             Restart=always
             RestartSec=5
@@ -569,21 +589,25 @@ Resources:
             systemctl enable --now farm2homez
 
             for i in $(seq 1 60); do
-              if curl -fs http://localhost:8000/api/health/ > /dev/null; then signal 0; exit 0; fi
+              if curl -fs http://localhost:8000/api/health/ > /dev/null; then echo "SETUP OK"; signal 0; exit 0; fi
               sleep 5
             done
+            echo "ERROR: app did not become healthy"
+            curl -s http://localhost:8000/api/health/ || true
+            systemctl status farm2homez --no-pager || true
+            tail -50 /var/log/farm2homez/app.log || true
             signal 1
 
   AppAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     CreationPolicy:
-      ResourceSignal: {Count: 1, Timeout: PT25M}
+      ResourceSignal: {Count: 1, Timeout: PT15M}
     UpdatePolicy:
       AutoScalingRollingUpdate:
         MinInstancesInService: 1
         MaxBatchSize: 1
         WaitOnResourceSignals: true
-        PauseTime: PT25M
+        PauseTime: PT15M
     Properties:
       AutoScalingGroupName: !Sub farm2homez-app-${AWS::StackName}
       MinSize: '1'

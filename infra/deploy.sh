@@ -29,6 +29,28 @@ show_failures() {
   aws cloudformation describe-stack-events --stack-name "$STACK" \
     --query "reverse(StackEvents[?contains(ResourceStatus, 'FAILED')])[:6].[LogicalResourceId, ResourceStatusReason]" \
     --output table || true
+  echo "Recent app server launches (Auto Scaling activity):"
+  aws autoscaling describe-scaling-activities --auto-scaling-group-name "farm2homez-app-$STACK" --max-items 3 \
+    --query 'Activities[].[StatusCode, StatusMessage || Description]' --output table 2>/dev/null || true
+  if aws s3 cp "s3://$ARTIFACTS/logs/bootstrap-latest.log" /tmp/farm2homez-bootstrap.log --only-show-errors 2>/dev/null; then
+    echo
+    echo "Last lines of the app server setup log (full log: s3://$ARTIFACTS/logs/bootstrap-latest.log):"
+    tail -40 /tmp/farm2homez-bootstrap.log
+  else
+    echo "No app server setup log was uploaded - the server may never have started."
+  fi
+  echo
+  echo "The failed resources are kept so you can inspect them. Re-running this script cleans them up first."
+}
+delete_stack() {
+  # CloudFormation cannot delete non-empty buckets, so empty them first
+  for bucket in SiteBucket MediaBucket; do
+    name=$(aws cloudformation describe-stack-resource --stack-name "$STACK" --logical-resource-id "$bucket" \
+      --query StackResourceDetail.PhysicalResourceId --output text 2>/dev/null || true)
+    [[ -n "$name" && "$name" != None ]] && aws s3 rm "s3://$name" --recursive --only-show-errors 2>/dev/null || true
+  done
+  aws cloudformation delete-stack --stack-name "$STACK"
+  aws cloudformation wait stack-delete-complete --stack-name "$STACK"
 }
 
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
@@ -38,14 +60,13 @@ ARTIFACTS="farm2homez-artifacts-$ACCOUNT"
 case "$(stack_status)" in
   *_IN_PROGRESS)
     step "A deployment is already running - waiting for it to finish"
-    aws cloudformation wait stack-create-complete --stack-name "$STACK" 2>/dev/null \
-      || aws cloudformation wait stack-update-complete --stack-name "$STACK" 2>/dev/null || true ;;
+    while [[ "$(stack_status)" == *_IN_PROGRESS ]]; do sleep 20; done ;;
 esac
-if [[ "$(stack_status)" == ROLLBACK_COMPLETE || "$(stack_status)" == ROLLBACK_FAILED ]]; then
-  step "Removing the failed stack from a previous attempt"
-  aws cloudformation delete-stack --stack-name "$STACK"
-  aws cloudformation wait stack-delete-complete --stack-name "$STACK"
-fi
+case "$(stack_status)" in
+  CREATE_FAILED|ROLLBACK_COMPLETE|ROLLBACK_FAILED|DELETE_FAILED)
+    step "Removing the failed stack from a previous attempt (a few minutes)"
+    delete_stack ;;
+esac
 
 # ------------------------------------------------------------------ secrets
 step "Storing app secrets in SSM Parameter Store ($SSM_PREFIX)"
@@ -76,6 +97,7 @@ tar -czf /tmp/farm2homez-backend.tar.gz -C "$ROOT/backend" \
   --exclude=.venv --exclude=__pycache__ --exclude=.env --exclude=db.sqlite3 \
   --exclude=staticfiles --exclude=media --exclude=logs .
 aws s3 cp /tmp/farm2homez-backend.tar.gz "s3://$ARTIFACTS/$PACKAGE_KEY" --only-show-errors
+aws s3 rm "s3://$ARTIFACTS/logs/bootstrap-latest.log" --only-show-errors 2>/dev/null || true
 
 # ------------------------------------------------------------------ infrastructure
 CLOUDFRONT_PREFIX_LIST=$(aws ec2 describe-managed-prefix-lists \
@@ -95,8 +117,11 @@ PARAMS=(
 [[ -n "${ALERT_EMAIL:-}" ]] && PARAMS+=("AlertEmail=$ALERT_EMAIL")
 [[ "$PG_VERSION" == 17.* ]] && PARAMS+=("DBEngineVersion=$PG_VERSION")
 
+EXTRA_ARGS=()
 if [[ "$(stack_status)" == NONE ]]; then
   step "Creating the AWS infrastructure - this takes about 20 minutes (database + CloudFront are the slow parts)"
+  # Keep resources on failure so the cause can be inspected (the next run cleans up)
+  EXTRA_ARGS+=(--disable-rollback)
 else
   step "Updating the AWS infrastructure and rolling out the new backend (5-15 minutes)"
 fi
@@ -105,6 +130,7 @@ if ! aws cloudformation deploy \
     --template-file "$ROOT/infra/farm2homez.yaml" \
     --stack-name "$STACK" \
     --parameter-overrides "${PARAMS[@]}" \
+    "${EXTRA_ARGS[@]}" \
     --no-fail-on-empty-changeset; then
   show_failures
   exit 1
