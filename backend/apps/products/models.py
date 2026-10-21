@@ -170,3 +170,22 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f'{self.product} image {self.position}'
+
+
+class PendingUpload(models.Model):
+    """A short-lived permission for a producer's browser to upload one image straight to S3.
+    The object is validated and re-encoded when the upload is confirmed."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='pending_uploads')
+    key = models.CharField(max_length=255, unique=True)
+    content_type = models.CharField(max_length=40)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.key

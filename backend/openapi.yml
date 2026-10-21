@@ -1,0 +1,6393 @@
+openapi: 3.0.3
+info:
+  title: Farm2Home API
+  version: 2.0.0
+  description: 'Farm-to-consumer marketplace API: producers, consumers, catalogue,
+    orders and administration.'
+paths:
+  /api/admin/audit-logs/:
+    get:
+      operationId: admin_audit_logs_list
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: target_type
+        schema:
+          type: string
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+  /api/admin/audit-logs/{id}/:
+    get:
+      operationId: admin_audit_logs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this audit log.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/admin/categories/:
+    get:
+      operationId: admin_categories_list
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminCategory'
+          description: ''
+    post:
+      operationId: admin_categories_create
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+          description: ''
+  /api/admin/categories/{id}/:
+    get:
+      operationId: admin_categories_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+          description: ''
+    put:
+      operationId: admin_categories_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+          description: ''
+    patch:
+      operationId: admin_categories_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminCategoryRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+          description: ''
+    delete:
+      operationId: admin_categories_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/admin/inquiries/:
+    get:
+      operationId: admin_inquiries_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: scope
+        schema:
+          type: string
+          enum:
+          - platform
+          - producers
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ANSWERED
+          - CLOSED
+          - OPEN
+        description: |-
+          * `OPEN` - Open
+          * `ANSWERED` - Answered
+          * `CLOSED` - Closed
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInquiryList'
+          description: ''
+  /api/admin/inquiries/{id}/:
+    get:
+      operationId: admin_inquiries_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+          description: ''
+  /api/admin/inquiries/{id}/close/:
+    post:
+      operationId: admin_inquiries_close_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+          description: ''
+  /api/admin/inquiries/{id}/reply/:
+    post:
+      operationId: admin_inquiries_reply_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryReply'
+          description: ''
+  /api/admin/orders/:
+    get:
+      operationId: admin_orders_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: payment_method
+        schema:
+          type: string
+          enum:
+          - COD
+          - MOCK_ONLINE
+        description: |-
+          * `COD` - Cash on delivery
+          * `MOCK_ONLINE` - Test online payment (no real money)
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - CANCELLED
+          - COMPLETED
+          - IN_PROGRESS
+          - PENDING
+        description: |-
+          * `PENDING` - Pending
+          * `IN_PROGRESS` - In progress
+          * `COMPLETED` - Completed
+          * `CANCELLED` - Cancelled
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrderListList'
+          description: ''
+  /api/admin/orders/{number}/:
+    get:
+      operationId: admin_orders_retrieve
+      parameters:
+      - in: path
+        name: number
+        schema:
+          type: string
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrder'
+          description: ''
+  /api/admin/orders/{number}/fulfillments/{fulfillment_id}/status/:
+    post:
+      operationId: admin_orders_fulfillments_status_create
+      parameters:
+      - in: path
+        name: fulfillment_id
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      - in: path
+        name: number
+        schema:
+          type: string
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrder'
+          description: ''
+  /api/admin/producers/:
+    get:
+      operationId: admin_producers_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: state
+        schema:
+          type: string
+      - in: query
+        name: verification_status
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - REJECTED
+          - VERIFIED
+        description: |-
+          * `PENDING` - Pending review
+          * `VERIFIED` - Verified
+          * `REJECTED` - Rejected
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminProducerList'
+          description: ''
+  /api/admin/producers/{id}/:
+    get:
+      operationId: admin_producers_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producer profile.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProducer'
+          description: ''
+  /api/admin/producers/{id}/verification/:
+    post:
+      operationId: admin_producers_verification_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producer profile.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationDecisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerificationDecisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerificationDecisionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProducer'
+          description: ''
+  /api/admin/products/:
+    get:
+      operationId: admin_products_list
+      parameters:
+      - in: query
+        name: category__slug
+        schema:
+          type: string
+      - in: query
+        name: is_available
+        schema:
+          type: boolean
+      - in: query
+        name: moderation_status
+        schema:
+          type: string
+          enum:
+          - APPROVED
+          - PENDING
+          - REJECTED
+        description: |-
+          * `PENDING` - Pending review
+          * `APPROVED` - Approved
+          * `REJECTED` - Rejected
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: producer__slug
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - UNPUBLISHED
+        description: |-
+          * `DRAFT` - Draft
+          * `PUBLISHED` - Published
+          * `UNPUBLISHED` - Unpublished
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminProductList'
+          description: ''
+  /api/admin/products/{id}/:
+    get:
+      operationId: admin_products_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProduct'
+          description: ''
+  /api/admin/products/{id}/moderate/:
+    post:
+      operationId: admin_products_moderate_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ModerationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ModerationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProduct'
+          description: ''
+  /api/admin/reports/overview/:
+    get:
+      operationId: admin_reports_overview_retrieve
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/admin/users/:
+    get:
+      operationId: admin_users_list
+      parameters:
+      - in: query
+        name: email_verified
+        schema:
+          type: boolean
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - ADMIN
+          - CONSUMER
+          - PRODUCER
+        description: |-
+          * `CONSUMER` - Consumer
+          * `PRODUCER` - Producer
+          * `ADMIN` - Admin
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminUserList'
+          description: ''
+  /api/admin/users/{id}/:
+    get:
+      operationId: admin_users_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/admin/users/{id}/reactivate/:
+    post:
+      operationId: admin_users_reactivate_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/admin/users/{id}/suspend/:
+    post:
+      operationId: admin_users_suspend_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuspendRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SuspendRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SuspendRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/analytics/producer/overview/:
+    get:
+      operationId: analytics_producer_overview_retrieve
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/analytics/product-views/:
+    post:
+      operationId: analytics_product_views_create
+      description: Count a product page view. Views by the listing's own producer
+        are ignored.
+      tags:
+      - analytics
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductViewRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductViewRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductViewRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '202':
+          description: No response body
+  /api/auth/consumer/register/:
+    post:
+      operationId: auth_consumer_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsumerRegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConsumerRegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConsumerRegisterRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+          description: ''
+  /api/auth/csrf/:
+    get:
+      operationId: auth_csrf_retrieve
+      description: Sets the csrftoken cookie. The SPA calls this once on load.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+          description: ''
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+          description: ''
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+          description: ''
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: auth_me_partial_update
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/password/change/:
+    post:
+      operationId: auth_password_change_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+          description: ''
+  /api/auth/password/forgot/:
+    post:
+      operationId: auth_password_forgot_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+          description: ''
+  /api/auth/password/reset/:
+    post:
+      operationId: auth_password_reset_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+          description: ''
+  /api/auth/producer/register/:
+    post:
+      operationId: auth_producer_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProducerRegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProducerRegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProducerRegisterRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+          description: ''
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: Exchanges the refresh cookie for a new access token and rotates
+        the cookie.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+          description: ''
+  /api/auth/verify-email/:
+    post:
+      operationId: auth_verify_email_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+          description: ''
+  /api/auth/verify-email/resend/:
+    post:
+      operationId: auth_verify_email_resend_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+          description: ''
+  /api/cart/:
+    get:
+      operationId: cart_retrieve
+      tags:
+      - cart
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
+    delete:
+      operationId: cart_destroy
+      tags:
+      - cart
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/cart/items/:
+    post:
+      operationId: cart_items_create
+      tags:
+      - cart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToCartRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AddToCartRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AddToCartRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
+  /api/cart/items/{item_id}/:
+    patch:
+      operationId: cart_items_partial_update
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - cart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUpdateCartItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUpdateCartItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUpdateCartItemRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
+    delete:
+      operationId: cart_items_destroy
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - cart
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/categories/:
+    get:
+      operationId: categories_list
+      description: Active categories with their subcategories and the number of live
+        listings.
+      tags:
+      - categories
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+          description: ''
+  /api/consumers/me/addresses/:
+    get:
+      operationId: consumers_me_addresses_list
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+          description: ''
+    post:
+      operationId: consumers_me_addresses_create
+      tags:
+      - consumers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+  /api/consumers/me/addresses/{id}/:
+    get:
+      operationId: consumers_me_addresses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    put:
+      operationId: consumers_me_addresses_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - consumers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AddressRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    patch:
+      operationId: consumers_me_addresses_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - consumers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAddressRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAddressRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAddressRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    delete:
+      operationId: consumers_me_addresses_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/consumers/me/addresses/{id}/set-default/:
+    post:
+      operationId: consumers_me_addresses_set_default_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+  /api/consumers/me/favorites/producers/:
+    get:
+      operationId: consumers_me_favorites_producers_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFavoriteProducerList'
+          description: ''
+    post:
+      operationId: consumers_me_favorites_producers_create
+      tags:
+      - consumers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteProducerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FavoriteProducerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FavoriteProducerRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteProducer'
+          description: ''
+  /api/consumers/me/favorites/producers/{slug}/:
+    delete:
+      operationId: consumers_me_favorites_producers_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: integer
+        description: A unique integer value identifying this favorite producer.
+        required: true
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/consumers/me/favorites/products/:
+    get:
+      operationId: consumers_me_favorites_products_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFavoriteProductList'
+          description: ''
+    post:
+      operationId: consumers_me_favorites_products_create
+      tags:
+      - consumers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FavoriteProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FavoriteProductRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteProduct'
+          description: ''
+  /api/consumers/me/favorites/products/{slug}/:
+    delete:
+      operationId: consumers_me_favorites_products_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: integer
+        description: A unique integer value identifying this favorite product.
+        required: true
+      tags:
+      - consumers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/inquiries/:
+    post:
+      operationId: inquiries_create
+      description: Send a question to a farm (producer_slug or product_slug) or to
+        the Farm2Home team (neither).
+      tags:
+      - inquiries
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InquiryCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InquiryCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+          description: ''
+  /api/inquiries/mine/:
+    get:
+      operationId: inquiries_mine_list
+      description: Inquiries the signed-in consumer has sent.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ANSWERED
+          - CLOSED
+          - OPEN
+        description: |-
+          * `OPEN` - Open
+          * `ANSWERED` - Answered
+          * `CLOSED` - Closed
+      tags:
+      - inquiries
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInquiryList'
+          description: ''
+  /api/inquiries/mine/{id}/:
+    get:
+      operationId: inquiries_mine_retrieve
+      description: Inquiries the signed-in consumer has sent.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - inquiries
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+          description: ''
+  /api/inquiries/mine/{id}/reply/:
+    post:
+      operationId: inquiries_mine_reply_create
+      description: Inquiries the signed-in consumer has sent.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - inquiries
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryReply'
+          description: ''
+  /api/orders/:
+    get:
+      operationId: orders_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - CANCELLED
+          - COMPLETED
+          - IN_PROGRESS
+          - PENDING
+        description: |-
+          * `PENDING` - Pending
+          * `IN_PROGRESS` - In progress
+          * `COMPLETED` - Completed
+          * `CANCELLED` - Cancelled
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrderListList'
+          description: ''
+  /api/orders/{number}/:
+    get:
+      operationId: orders_retrieve
+      parameters:
+      - in: path
+        name: number
+        schema:
+          type: string
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/orders/{number}/cancel/:
+    post:
+      operationId: orders_cancel_create
+      parameters:
+      - in: path
+        name: number
+        schema:
+          type: string
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/orders/checkout/:
+    post:
+      operationId: orders_checkout_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/orders/payment-methods/:
+    get:
+      operationId: orders_payment_methods_list
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethod'
+          description: ''
+  /api/producers/:
+    get:
+      operationId: producers_list
+      description: Public farm directory and profiles.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProducerPublicList'
+          description: ''
+  /api/producers/{slug}/:
+    get:
+      operationId: producers_retrieve
+      description: Public farm directory and profiles.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerPublic'
+          description: ''
+  /api/producers/me/:
+    get:
+      operationId: producers_me_retrieve
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProfile'
+          description: ''
+    patch:
+      operationId: producers_me_partial_update
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProducerProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProducerProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProducerProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProfile'
+          description: ''
+  /api/producers/me/inquiries/:
+    get:
+      operationId: producers_me_inquiries_list
+      description: Inquiries addressed to the signed-in producer's farm.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ANSWERED
+          - CLOSED
+          - OPEN
+        description: |-
+          * `OPEN` - Open
+          * `ANSWERED` - Answered
+          * `CLOSED` - Closed
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInquiryList'
+          description: ''
+  /api/producers/me/inquiries/{id}/:
+    get:
+      operationId: producers_me_inquiries_retrieve
+      description: Inquiries addressed to the signed-in producer's farm.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+          description: ''
+  /api/producers/me/inquiries/{id}/close/:
+    post:
+      operationId: producers_me_inquiries_close_create
+      description: Inquiries addressed to the signed-in producer's farm.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+          description: ''
+  /api/producers/me/inquiries/{id}/reply/:
+    post:
+      operationId: producers_me_inquiries_reply_create
+      description: Inquiries addressed to the signed-in producer's farm.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inquiry.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReplyRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryReply'
+          description: ''
+  /api/producers/me/orders/:
+    get:
+      operationId: producers_me_orders_list
+      description: Orders containing the producer's products. Each record is that
+        producer's part only.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - CANCELLED
+          - CONFIRMED
+          - DELIVERED
+          - OUT_FOR_DELIVERY
+          - PENDING
+          - PROCESSING
+          - REJECTED
+          - SHIPPED
+        description: |-
+          * `PENDING` - Awaiting producer
+          * `CONFIRMED` - Confirmed
+          * `PROCESSING` - Processing
+          * `SHIPPED` - Shipped
+          * `OUT_FOR_DELIVERY` - Out for delivery
+          * `DELIVERED` - Delivered
+          * `REJECTED` - Rejected by producer
+          * `CANCELLED` - Cancelled
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProducerOrderList'
+          description: ''
+  /api/producers/me/orders/{id}/:
+    get:
+      operationId: producers_me_orders_retrieve
+      description: Orders containing the producer's products. Each record is that
+        producer's part only.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producer order.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerOrder'
+          description: ''
+  /api/producers/me/orders/{id}/status/:
+    post:
+      operationId: producers_me_orders_status_create
+      description: Orders containing the producer's products. Each record is that
+        producer's part only.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producer order.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerOrder'
+          description: ''
+  /api/producers/me/products/:
+    get:
+      operationId: producers_me_products_list
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: query
+        name: is_available
+        schema:
+          type: boolean
+      - in: query
+        name: moderation_status
+        schema:
+          type: string
+          enum:
+          - APPROVED
+          - PENDING
+          - REJECTED
+        description: |-
+          * `PENDING` - Pending review
+          * `APPROVED` - Approved
+          * `REJECTED` - Rejected
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - UNPUBLISHED
+        description: |-
+          * `DRAFT` - Draft
+          * `PUBLISHED` - Published
+          * `UNPUBLISHED` - Unpublished
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProducerProductList'
+          description: ''
+    post:
+      operationId: producers_me_products_create
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProducerProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProducerProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProducerProductRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProduct'
+          description: ''
+  /api/producers/me/products/{id}/:
+    get:
+      operationId: producers_me_products_retrieve
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProduct'
+          description: ''
+    put:
+      operationId: producers_me_products_update
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProducerProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProducerProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProducerProductRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProduct'
+          description: ''
+    patch:
+      operationId: producers_me_products_partial_update
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProducerProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProducerProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProducerProductRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProduct'
+          description: ''
+    delete:
+      operationId: producers_me_products_destroy
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/producers/me/products/{id}/images/:
+    post:
+      operationId: producers_me_products_images_create
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImageUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductImage'
+          description: ''
+  /api/producers/me/products/{id}/images/{image_id}/:
+    delete:
+      operationId: producers_me_products_images_destroy
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      - in: path
+        name: image_id
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/producers/me/products/{id}/images/confirm/:
+    post:
+      operationId: producers_me_products_images_confirm_create
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadConfirmRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductImage'
+          description: ''
+  /api/producers/me/products/{id}/images/order/:
+    post:
+      operationId: producers_me_products_images_order_create
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      - in: query
+        name: is_available
+        schema:
+          type: boolean
+      - in: query
+        name: moderation_status
+        schema:
+          type: string
+          enum:
+          - APPROVED
+          - PENDING
+          - REJECTED
+        description: |-
+          * `PENDING` - Pending review
+          * `APPROVED` - Approved
+          * `REJECTED` - Rejected
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - UNPUBLISHED
+        description: |-
+          * `DRAFT` - Draft
+          * `PUBLISHED` - Published
+          * `UNPUBLISHED` - Unpublished
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageOrderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ImageOrderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImageOrderRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProductImageList'
+          description: ''
+  /api/producers/me/products/{id}/images/upload-url/:
+    post:
+      operationId: producers_me_products_images_upload_url_create
+      description: Start an image upload. Returns either a presigned S3 POST or the
+        multipart endpoint to use.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadTicket'
+          description: ''
+  /api/producers/me/products/{id}/publish/:
+    post:
+      operationId: producers_me_products_publish_create
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProduct'
+          description: ''
+  /api/producers/me/products/{id}/unpublish/:
+    post:
+      operationId: producers_me_products_unpublish_create
+      description: 'A producer''s own listings: drafts, published and unpublished.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this product.
+        required: true
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProduct'
+          description: ''
+  /api/producers/me/resubmit-verification/:
+    post:
+      operationId: producers_me_resubmit_verification_create
+      tags:
+      - producers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerProfile'
+          description: ''
+  /api/products/:
+    get:
+      operationId: products_list
+      description: Public marketplace catalogue. Only published, approved listings
+        from verified, active producers.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Category or subcategory slug.
+      - in: query
+        name: in_stock
+        schema:
+          type: boolean
+      - in: query
+        name: max_price
+        schema:
+          type: number
+      - in: query
+        name: min_price
+        schema:
+          type: number
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: organic
+        schema:
+          type: boolean
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: producer
+        schema:
+          type: string
+        description: Producer (farm) slug.
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: seasonal
+        schema:
+          type: boolean
+      - in: query
+        name: state
+        schema:
+          type: string
+      - in: query
+        name: subcategory
+        schema:
+          type: string
+      tags:
+      - products
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProductListList'
+          description: ''
+  /api/products/{slug}/:
+    get:
+      operationId: products_retrieve
+      description: Public marketplace catalogue. Only published, approved listings
+        from verified, active producers.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - products
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+  /api/reviews/:
+    get:
+      operationId: reviews_list
+      description: Public product reviews. Only consumers who received the product
+        can review it.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: product
+        schema:
+          type: string
+        required: true
+      tags:
+      - reviews
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReviewList'
+          description: ''
+    post:
+      operationId: reviews_create
+      description: Public product reviews. Only consumers who received the product
+        can review it.
+      tags:
+      - reviews
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewCreate'
+          description: ''
+  /api/reviews/{id}/:
+    get:
+      operationId: reviews_retrieve
+      description: Public product reviews. Only consumers who received the product
+        can review it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this review.
+        required: true
+      tags:
+      - reviews
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+    patch:
+      operationId: reviews_partial_update
+      description: Public product reviews. Only consumers who received the product
+        can review it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this review.
+        required: true
+      tags:
+      - reviews
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedReviewRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedReviewRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedReviewRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+    delete:
+      operationId: reviews_destroy
+      description: Public product reviews. Only consumers who received the product
+        can review it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this review.
+        required: true
+      tags:
+      - reviews
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/reviews/mine/:
+    get:
+      operationId: reviews_mine_retrieve
+      description: Public product reviews. Only consumers who received the product
+        can review it.
+      tags:
+      - reviews
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+          description: ''
+components:
+  schemas:
+    AddToCartRequest:
+      type: object
+      properties:
+        product_slug:
+          type: string
+          minLength: 1
+          maxLength: 180
+          pattern: ^[-a-zA-Z0-9_]+$
+        quantity:
+          type: integer
+          maximum: 10000
+          minimum: 1
+          default: 1
+      required:
+      - product_slug
+    Address:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        label:
+          type: string
+          description: e.g. Home, Office
+          maxLength: 40
+        recipient_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          maxLength: 20
+        line1:
+          type: string
+          maxLength: 200
+        line2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          maxLength: 60
+        is_default:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city
+      - country
+      - created_at
+      - district
+      - id
+      - is_default
+      - label
+      - line1
+      - line2
+      - phone_number
+      - postal_code
+      - recipient_name
+      - state
+      - updated_at
+    AddressInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        line2:
+          type: string
+          default: ''
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        district:
+          type: string
+          default: ''
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        postal_code:
+          type: string
+          minLength: 1
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          minLength: 1
+          default: India
+          maxLength: 60
+      required:
+      - city
+      - line1
+      - name
+      - phone
+      - postal_code
+      - state
+    AddressRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: e.g. Home, Office
+          maxLength: 40
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+          minLength: 1
+          maxLength: 20
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        line2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        postal_code:
+          type: string
+          minLength: 1
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          minLength: 1
+          maxLength: 60
+      required:
+      - city
+      - line1
+      - phone_number
+      - postal_code
+      - recipient_name
+      - state
+    AdminCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 80
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        parent:
+          type: integer
+          nullable: true
+        position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - description
+      - id
+      - is_active
+      - name
+      - parent
+      - position
+      - slug
+      - updated_at
+    AdminCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+        parent:
+          type: integer
+          nullable: true
+        position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_active:
+          type: boolean
+      required:
+      - name
+    AdminOrder:
+      type: object
+      description: The consumer's view of their order.
+      properties:
+        number:
+          type: string
+          maxLength: 24
+        status:
+          $ref: '#/components/schemas/OrderStatusEnum'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        payment:
+          allOf:
+          - $ref: '#/components/schemas/PaymentSummary'
+          readOnly: true
+        currency:
+          type: string
+          maxLength: 3
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        delivery_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        shipping:
+          allOf:
+          - $ref: '#/components/schemas/Shipping'
+          readOnly: true
+        notes:
+          type: string
+        producer_orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumerProducerOrder'
+          readOnly: true
+        can_cancel:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        consumer:
+          allOf:
+          - $ref: '#/components/schemas/ConsumerRef'
+          readOnly: true
+      required:
+      - can_cancel
+      - consumer
+      - created_at
+      - currency
+      - delivery_total
+      - notes
+      - number
+      - payment
+      - payment_method
+      - producer_orders
+      - shipping
+      - status
+      - subtotal
+      - total
+      - updated_at
+    AdminProducer:
+      type: object
+      description: The producer's own editable profile.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        farm_name:
+          type: string
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+          readOnly: true
+        address_line1:
+          type: string
+          readOnly: true
+        address_line2:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        district:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          readOnly: true
+        postal_code:
+          type: string
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          readOnly: true
+        location:
+          type: string
+          readOnly: true
+        registration_number:
+          type: string
+          readOnly: true
+          description: Business, FSSAI or farmer registration number, if any.
+        verification_details:
+          type: string
+          readOnly: true
+          description: Anything that helps admins verify the farm.
+        verification_status:
+          allOf:
+          - $ref: '#/components/schemas/VerificationStatusEnum'
+          readOnly: true
+        verification_note:
+          type: string
+          readOnly: true
+          description: Admin note shown to the producer.
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        whatsapp_number:
+          type: string
+          readOnly: true
+        whatsapp_enabled:
+          type: boolean
+          readOnly: true
+        whatsapp_link:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user_id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        phone_number:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        email_verified:
+          type: boolean
+          readOnly: true
+      required:
+      - address_line1
+      - address_line2
+      - city
+      - country
+      - created_at
+      - description
+      - district
+      - email
+      - email_verified
+      - farm_name
+      - full_name
+      - id
+      - is_active
+      - location
+      - phone_number
+      - postal_code
+      - registration_number
+      - slug
+      - state
+      - updated_at
+      - user_id
+      - verification_details
+      - verification_note
+      - verification_status
+      - verified_at
+      - whatsapp_enabled
+      - whatsapp_link
+      - whatsapp_number
+    AdminProduct:
+      type: object
+      description: A producer's view of their own listing, including drafts and moderation
+        state.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          readOnly: true
+        category:
+          type: string
+        subcategory:
+          type: string
+          nullable: true
+        description:
+          type: string
+          readOnly: true
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          readOnly: true
+        unit:
+          allOf:
+          - $ref: '#/components/schemas/UnitEnum'
+          readOnly: true
+        stock_quantity:
+          type: integer
+          maximum: 10000000
+          minimum: 0
+        min_order_quantity:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        origin:
+          type: string
+          readOnly: true
+          description: Where it was grown or produced.
+        harvest_info:
+          type: string
+          readOnly: true
+        is_seasonal:
+          type: boolean
+          readOnly: true
+        available_from:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        available_until:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        is_available:
+          type: boolean
+          readOnly: true
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ProductStatusEnum'
+          readOnly: true
+        moderation_status:
+          allOf:
+          - $ref: '#/components/schemas/ModerationStatusEnum'
+          readOnly: true
+        moderation_note:
+          type: string
+          readOnly: true
+        is_purchasable:
+          type: boolean
+          readOnly: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerBrief'
+          readOnly: true
+      required:
+      - available_from
+      - available_until
+      - category
+      - created_at
+      - currency
+      - description
+      - harvest_info
+      - id
+      - images
+      - is_available
+      - is_organic
+      - is_purchasable
+      - is_seasonal
+      - min_order_quantity
+      - moderation_note
+      - moderation_status
+      - name
+      - origin
+      - price
+      - producer
+      - published_at
+      - slug
+      - status
+      - stock_quantity
+      - subcategory
+      - unit
+      - updated_at
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        phone_number:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        email_verified:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+          description: Unset to suspend the account.
+        suspended_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        suspension_reason:
+          type: string
+          readOnly: true
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerSummary'
+          nullable: true
+          readOnly: true
+      required:
+      - date_joined
+      - email
+      - email_verified
+      - full_name
+      - id
+      - is_active
+      - last_login
+      - phone_number
+      - producer
+      - role
+      - suspended_at
+      - suspension_reason
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        action:
+          type: string
+          maxLength: 80
+        actor_email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        target_type:
+          type: string
+          maxLength: 60
+        target_id:
+          type: string
+          maxLength: 64
+        target_repr:
+          type: string
+          maxLength: 255
+        metadata: {}
+        ip_address:
+          type: string
+          nullable: true
+      required:
+      - action
+      - actor_email
+      - created_at
+      - id
+      - ip_address
+      - metadata
+      - target_id
+      - target_repr
+      - target_type
+    CancelRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          default: ''
+          maxLength: 1000
+    Cart:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLine'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartGroup'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        delivery_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        item_count:
+          type: integer
+        can_checkout:
+          type: boolean
+      required:
+      - can_checkout
+      - delivery_total
+      - groups
+      - item_count
+      - items
+      - subtotal
+      - total
+    CartGroup:
+      type: object
+      properties:
+        producer:
+          $ref: '#/components/schemas/ProducerBrief'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        delivery_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+      required:
+      - delivery_fee
+      - producer
+      - subtotal
+      - total
+    CartLine:
+      type: object
+      properties:
+        id:
+          type: integer
+        product:
+          $ref: '#/components/schemas/ProductList'
+        quantity:
+          type: integer
+        line_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        issue:
+          type: string
+          nullable: true
+      required:
+      - id
+      - issue
+      - line_total
+      - product
+      - quantity
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 80
+        slug:
+          type: string
+          maxLength: 90
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        product_count:
+          type: integer
+          readOnly: true
+          default: 0
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryBrief'
+          readOnly: true
+      required:
+      - children
+      - description
+      - id
+      - name
+      - position
+      - product_count
+      - slug
+    CategoryBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 80
+        slug:
+          type: string
+          maxLength: 90
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - id
+      - name
+      - slug
+    CategoryBriefRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 90
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - name
+      - slug
+    ChangePasswordRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        new_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        confirm_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - confirm_password
+      - current_password
+      - new_password
+    CheckoutRequest:
+      type: object
+      properties:
+        address_id:
+          type: integer
+        address:
+          $ref: '#/components/schemas/AddressInputRequest'
+        save_address:
+          type: boolean
+          default: false
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        notes:
+          type: string
+          default: ''
+          maxLength: 500
+        expected_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+      required:
+      - payment_method
+    ConsumerProducerOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerBrief'
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/FulfillmentStatusEnum'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        delivery_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        status_note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          readOnly: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+          readOnly: true
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        shipped_at:
+          type: string
+          format: date-time
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - cancelled_at
+      - confirmed_at
+      - delivered_at
+      - delivery_fee
+      - events
+      - id
+      - items
+      - producer
+      - shipped_at
+      - status
+      - status_note
+      - subtotal
+      - total
+    ConsumerRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+      required:
+      - email
+      - full_name
+      - id
+    ConsumerRegisterRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        confirm_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        phone_number:
+          type: string
+          default: ''
+          maxLength: 20
+      required:
+      - confirm_password
+      - email
+      - full_name
+      - password
+    ContentTypeEnum:
+      enum:
+      - image/jpeg
+      - image/png
+      - image/webp
+      type: string
+      description: |-
+        * `image/jpeg` - image/jpeg
+        * `image/png` - image/png
+        * `image/webp` - image/webp
+    Detail:
+      type: object
+      description: 'Plain acknowledgement: {"detail": "..."}.'
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    FavoriteProducer:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerPublic'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - producer
+    FavoriteProducerRequest:
+      type: object
+      properties:
+        producer_slug:
+          type: string
+          writeOnly: true
+          minLength: 1
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - producer_slug
+    FavoriteProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product:
+          allOf:
+          - $ref: '#/components/schemas/ProductList'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - product
+    FavoriteProductRequest:
+      type: object
+      properties:
+        product_slug:
+          type: string
+          writeOnly: true
+          minLength: 1
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - product_slug
+    FulfillmentStatusEnum:
+      enum:
+      - PENDING
+      - CONFIRMED
+      - PROCESSING
+      - SHIPPED
+      - OUT_FOR_DELIVERY
+      - DELIVERED
+      - REJECTED
+      - CANCELLED
+      type: string
+      description: |-
+        * `PENDING` - Awaiting producer
+        * `CONFIRMED` - Confirmed
+        * `PROCESSING` - Processing
+        * `SHIPPED` - Shipped
+        * `OUT_FOR_DELIVERY` - Out for delivery
+        * `DELIVERED` - Delivered
+        * `REJECTED` - Rejected by producer
+        * `CANCELLED` - Cancelled
+    ImageOrderRequest:
+      type: object
+      properties:
+        image_ids:
+          type: array
+          items:
+            type: integer
+      required:
+      - image_ids
+    ImageUploadRequest:
+      type: object
+      properties:
+        image:
+          type: string
+          format: binary
+        alt_text:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - image
+    Inquiry:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerBrief'
+          readOnly: true
+          nullable: true
+        product:
+          allOf:
+          - $ref: '#/components/schemas/ProductRef'
+          nullable: true
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 20
+        subject:
+          type: string
+          maxLength: 200
+        message:
+          type: string
+        status:
+          $ref: '#/components/schemas/InquiryStatusEnum'
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/InquiryReply'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - id
+      - message
+      - name
+      - phone
+      - producer
+      - product
+      - replies
+      - status
+      - subject
+      - updated_at
+    InquiryCreateRequest:
+      type: object
+      properties:
+        producer_slug:
+          oneOf:
+          - type: string
+            default: ''
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: string
+            maxLength: 0
+        product_slug:
+          oneOf:
+          - type: string
+            default: ''
+            pattern: ^[-a-zA-Z0-9_]+$
+          - type: string
+            maxLength: 0
+        name:
+          type: string
+          default: ''
+          maxLength: 150
+        email:
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          default: ''
+          maxLength: 20
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 10
+          maxLength: 5000
+      required:
+      - message
+      - subject
+    InquiryReply:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        author_role:
+          type: string
+          maxLength: 10
+        message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author_role
+      - created_at
+      - id
+      - message
+    InquiryStatusEnum:
+      enum:
+      - OPEN
+      - ANSWERED
+      - CLOSED
+      type: string
+      description: |-
+        * `OPEN` - Open
+        * `ANSWERED` - Answered
+        * `CLOSED` - Closed
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - email
+      - password
+      - role
+    ModerationDecisionEnum:
+      enum:
+      - APPROVED
+      - REJECTED
+      type: string
+      description: |-
+        * `APPROVED` - APPROVED
+        * `REJECTED` - REJECTED
+    ModerationRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/ModerationDecisionEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 2000
+      required:
+      - decision
+    ModerationStatusEnum:
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+      type: string
+      description: |-
+        * `PENDING` - Pending review
+        * `APPROVED` - Approved
+        * `REJECTED` - Rejected
+    Order:
+      type: object
+      description: The consumer's view of their order.
+      properties:
+        number:
+          type: string
+          maxLength: 24
+        status:
+          $ref: '#/components/schemas/OrderStatusEnum'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        payment:
+          allOf:
+          - $ref: '#/components/schemas/PaymentSummary'
+          readOnly: true
+        currency:
+          type: string
+          maxLength: 3
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        delivery_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        shipping:
+          allOf:
+          - $ref: '#/components/schemas/Shipping'
+          readOnly: true
+        notes:
+          type: string
+        producer_orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumerProducerOrder'
+          readOnly: true
+        can_cancel:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - can_cancel
+      - created_at
+      - currency
+      - delivery_total
+      - notes
+      - number
+      - payment
+      - payment_method
+      - producer_orders
+      - shipping
+      - status
+      - subtotal
+      - total
+      - updated_at
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        product_slug:
+          type: string
+          maxLength: 180
+        product_name:
+          type: string
+          maxLength: 160
+        unit:
+          type: string
+          maxLength: 10
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        line_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        image:
+          type: string
+          nullable: true
+          readOnly: true
+      required:
+      - id
+      - image
+      - line_total
+      - product_id
+      - product_name
+      - product_slug
+      - quantity
+      - unit
+      - unit_price
+    OrderList:
+      type: object
+      properties:
+        number:
+          type: string
+          maxLength: 24
+        status:
+          $ref: '#/components/schemas/OrderStatusEnum'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        currency:
+          type: string
+          maxLength: 3
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        item_count:
+          type: integer
+          readOnly: true
+        farms:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - currency
+      - farms
+      - item_count
+      - number
+      - payment_method
+      - status
+      - total
+    OrderStatusEnum:
+      enum:
+      - PENDING
+      - IN_PROGRESS
+      - COMPLETED
+      - CANCELLED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `IN_PROGRESS` - In progress
+        * `COMPLETED` - Completed
+        * `CANCELLED` - Cancelled
+    PaginatedAdminProducerList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProducer'
+    PaginatedAdminProductList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProduct'
+    PaginatedAdminUserList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+    PaginatedFavoriteProducerList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FavoriteProducer'
+    PaginatedFavoriteProductList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FavoriteProduct'
+    PaginatedInquiryList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Inquiry'
+    PaginatedOrderListList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderList'
+    PaginatedProducerOrderList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProducerOrder'
+    PaginatedProducerProductList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProducerProduct'
+    PaginatedProducerPublicList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProducerPublic'
+    PaginatedProductImageList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+    PaginatedProductListList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductList'
+    PaginatedReviewList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+    PasswordResetRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+        new_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        confirm_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - code
+      - confirm_password
+      - email
+      - new_password
+    PatchedAddressRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: e.g. Home, Office
+          maxLength: 40
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+          minLength: 1
+          maxLength: 20
+        line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        line2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        postal_code:
+          type: string
+          minLength: 1
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          minLength: 1
+          maxLength: 60
+    PatchedAdminCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+        parent:
+          type: integer
+          nullable: true
+        position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_active:
+          type: boolean
+    PatchedMeUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+          maxLength: 20
+    PatchedProducerProductRequest:
+      type: object
+      description: A producer's view of their own listing, including drafts and moderation
+        state.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          type: string
+          minLength: 1
+        subcategory:
+          type: string
+          minLength: 1
+          nullable: true
+        description:
+          type: string
+          minLength: 1
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        stock_quantity:
+          type: integer
+          maximum: 10000000
+          minimum: 0
+        min_order_quantity:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        origin:
+          type: string
+          minLength: 1
+          description: Where it was grown or produced.
+          maxLength: 160
+        harvest_info:
+          type: string
+          maxLength: 255
+        is_seasonal:
+          type: boolean
+        available_from:
+          type: string
+          format: date
+          nullable: true
+        available_until:
+          type: string
+          format: date
+          nullable: true
+        is_available:
+          type: boolean
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+    PatchedProducerProfileRequest:
+      type: object
+      description: The producer's own editable profile.
+      properties:
+        farm_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        description:
+          type: string
+        address_line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address_line2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        postal_code:
+          type: string
+          minLength: 1
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          minLength: 1
+          maxLength: 60
+        registration_number:
+          type: string
+          description: Business, FSSAI or farmer registration number, if any.
+          maxLength: 80
+        verification_details:
+          type: string
+          description: Anything that helps admins verify the farm.
+        whatsapp_number:
+          type: string
+          maxLength: 20
+        whatsapp_enabled:
+          type: boolean
+    PatchedReviewRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          maximum: 5
+          minimum: 1
+        comment:
+          type: string
+          default: ''
+          maxLength: 2000
+    PatchedUpdateCartItemRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          maximum: 10000
+          minimum: 1
+    PaymentMethod:
+      type: object
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        is_test:
+          type: boolean
+      required:
+      - code
+      - is_test
+      - label
+    PaymentMethodEnum:
+      enum:
+      - COD
+      - MOCK_ONLINE
+      type: string
+      description: |-
+        * `COD` - Cash on delivery
+        * `MOCK_ONLINE` - Test online payment (no real money)
+    PaymentSummary:
+      type: object
+      properties:
+        provider:
+          type: string
+        status:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        is_test:
+          type: boolean
+        reference:
+          type: string
+      required:
+      - amount
+      - is_test
+      - provider
+      - reference
+      - status
+    ProducerBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        farm_name:
+          type: string
+          maxLength: 150
+        slug:
+          type: string
+          maxLength: 170
+          pattern: ^[-a-zA-Z0-9_]+$
+        location:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          maxLength: 100
+        is_verified:
+          type: boolean
+          readOnly: true
+      required:
+      - farm_name
+      - id
+      - is_verified
+      - location
+      - slug
+      - state
+    ProducerBriefRequest:
+      type: object
+      properties:
+        farm_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 170
+          pattern: ^[-a-zA-Z0-9_]+$
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - farm_name
+      - slug
+      - state
+    ProducerOrder:
+      type: object
+      description: 'The producer''s view: only their own items plus what they need
+        to deliver.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/FulfillmentStatusEnum'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        delivery_fee:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        status_note:
+          type: string
+        payment_method:
+          type: string
+          readOnly: true
+        shipping:
+          allOf:
+          - $ref: '#/components/schemas/Shipping'
+          readOnly: true
+        order_notes:
+          type: string
+          readOnly: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          readOnly: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+          readOnly: true
+        allowed_transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FulfillmentStatusEnum'
+          readOnly: true
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        shipped_at:
+          type: string
+          format: date-time
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - allowed_transitions
+      - cancelled_at
+      - confirmed_at
+      - created_at
+      - delivered_at
+      - delivery_fee
+      - events
+      - id
+      - items
+      - order_notes
+      - order_number
+      - payment_method
+      - shipped_at
+      - shipping
+      - status
+      - status_note
+      - subtotal
+      - total
+    ProducerProduct:
+      type: object
+      description: A producer's view of their own listing, including drafts and moderation
+        state.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          maxLength: 160
+        category:
+          type: string
+        subcategory:
+          type: string
+          nullable: true
+        description:
+          type: string
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          readOnly: true
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        stock_quantity:
+          type: integer
+          maximum: 10000000
+          minimum: 0
+        min_order_quantity:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        origin:
+          type: string
+          description: Where it was grown or produced.
+          maxLength: 160
+        harvest_info:
+          type: string
+          maxLength: 255
+        is_seasonal:
+          type: boolean
+        available_from:
+          type: string
+          format: date
+          nullable: true
+        available_until:
+          type: string
+          format: date
+          nullable: true
+        is_available:
+          type: boolean
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ProductStatusEnum'
+          readOnly: true
+        moderation_status:
+          allOf:
+          - $ref: '#/components/schemas/ModerationStatusEnum'
+          readOnly: true
+        moderation_note:
+          type: string
+          readOnly: true
+        is_purchasable:
+          type: boolean
+          readOnly: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - available_from
+      - available_until
+      - category
+      - created_at
+      - currency
+      - description
+      - harvest_info
+      - id
+      - images
+      - is_available
+      - is_organic
+      - is_purchasable
+      - is_seasonal
+      - min_order_quantity
+      - moderation_note
+      - moderation_status
+      - name
+      - origin
+      - price
+      - published_at
+      - slug
+      - status
+      - stock_quantity
+      - subcategory
+      - unit
+      - updated_at
+    ProducerProductRequest:
+      type: object
+      description: A producer's view of their own listing, including drafts and moderation
+        state.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          type: string
+          minLength: 1
+        subcategory:
+          type: string
+          minLength: 1
+          nullable: true
+        description:
+          type: string
+          minLength: 1
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        stock_quantity:
+          type: integer
+          maximum: 10000000
+          minimum: 0
+        min_order_quantity:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        origin:
+          type: string
+          minLength: 1
+          description: Where it was grown or produced.
+          maxLength: 160
+        harvest_info:
+          type: string
+          maxLength: 255
+        is_seasonal:
+          type: boolean
+        available_from:
+          type: string
+          format: date
+          nullable: true
+        available_until:
+          type: string
+          format: date
+          nullable: true
+        is_available:
+          type: boolean
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+      required:
+      - category
+      - description
+      - name
+      - origin
+      - price
+      - unit
+    ProducerProfile:
+      type: object
+      description: The producer's own editable profile.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        farm_name:
+          type: string
+          maxLength: 150
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        address_line1:
+          type: string
+          maxLength: 200
+        address_line2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        country:
+          type: string
+          maxLength: 60
+        location:
+          type: string
+          readOnly: true
+        registration_number:
+          type: string
+          description: Business, FSSAI or farmer registration number, if any.
+          maxLength: 80
+        verification_details:
+          type: string
+          description: Anything that helps admins verify the farm.
+        verification_status:
+          allOf:
+          - $ref: '#/components/schemas/VerificationStatusEnum'
+          readOnly: true
+        verification_note:
+          type: string
+          readOnly: true
+          description: Admin note shown to the producer.
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        whatsapp_number:
+          type: string
+          maxLength: 20
+        whatsapp_enabled:
+          type: boolean
+        whatsapp_link:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - address_line1
+      - address_line2
+      - city
+      - country
+      - created_at
+      - description
+      - district
+      - farm_name
+      - id
+      - location
+      - postal_code
+      - registration_number
+      - slug
+      - state
+      - updated_at
+      - verification_details
+      - verification_note
+      - verification_status
+      - verified_at
+      - whatsapp_enabled
+      - whatsapp_link
+      - whatsapp_number
+    ProducerPublic:
+      type: object
+      description: |-
+        Public farm profile. Personal contact details are never included; WhatsApp only
+        appears when the producer has opted in.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        farm_name:
+          type: string
+          maxLength: 150
+        slug:
+          type: string
+          maxLength: 170
+          pattern: ^[-a-zA-Z0-9_]+$
+        location:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          maxLength: 100
+        is_verified:
+          type: boolean
+          readOnly: true
+        description:
+          type: string
+        city:
+          type: string
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        whatsapp_link:
+          type: string
+          readOnly: true
+        member_since:
+          type: string
+          format: date-time
+          readOnly: true
+        product_count:
+          type: integer
+          readOnly: true
+      required:
+      - city
+      - description
+      - district
+      - farm_name
+      - id
+      - is_verified
+      - location
+      - member_since
+      - product_count
+      - slug
+      - state
+      - whatsapp_link
+    ProducerPublicRequest:
+      type: object
+      description: |-
+        Public farm profile. Personal contact details are never included; WhatsApp only
+        appears when the producer has opted in.
+      properties:
+        farm_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 170
+          pattern: ^[-a-zA-Z0-9_]+$
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+      required:
+      - city
+      - farm_name
+      - slug
+      - state
+    ProducerRegisterRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        confirm_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        phone_number:
+          type: string
+          minLength: 1
+          maxLength: 20
+        farm_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        address_line1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address_line2:
+          type: string
+          default: ''
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        district:
+          type: string
+          default: ''
+          maxLength: 100
+        state:
+          type: string
+          minLength: 1
+          maxLength: 100
+        postal_code:
+          type: string
+          minLength: 1
+          maxLength: 10
+          pattern: ^[0-9]{4,10}$
+        registration_number:
+          type: string
+          default: ''
+          maxLength: 80
+        verification_details:
+          type: string
+          default: ''
+          maxLength: 4000
+      required:
+      - address_line1
+      - city
+      - confirm_password
+      - description
+      - email
+      - farm_name
+      - full_name
+      - password
+      - phone_number
+      - postal_code
+      - state
+    ProducerSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        farm_name:
+          type: string
+        slug:
+          type: string
+        verification_status:
+          type: string
+        verification_note:
+          type: string
+      required:
+      - farm_name
+      - id
+      - slug
+      - verification_note
+      - verification_status
+    ProductDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        slug:
+          type: string
+          maxLength: 180
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          maxLength: 160
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryBrief'
+          readOnly: true
+        subcategory:
+          allOf:
+          - $ref: '#/components/schemas/CategoryBrief'
+          readOnly: true
+          nullable: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerPublic'
+          readOnly: true
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          maxLength: 3
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        stock_quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Units available to sell.
+        min_order_quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        origin:
+          type: string
+          description: Where it was grown or produced.
+          maxLength: 160
+        is_seasonal:
+          type: boolean
+        is_available:
+          type: boolean
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+        in_season:
+          type: boolean
+          readOnly: true
+        is_purchasable:
+          type: boolean
+          readOnly: true
+        primary_image:
+          allOf:
+          - $ref: '#/components/schemas/ProductImage'
+          nullable: true
+          readOnly: true
+        average_rating:
+          type: number
+          format: double
+          nullable: true
+          readOnly: true
+        review_count:
+          type: integer
+          readOnly: true
+          default: 0
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+        harvest_info:
+          type: string
+          maxLength: 255
+        available_from:
+          type: string
+          format: date
+          nullable: true
+        available_until:
+          type: string
+          format: date
+          nullable: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+          readOnly: true
+      required:
+      - available_from
+      - available_until
+      - average_rating
+      - category
+      - currency
+      - description
+      - harvest_info
+      - id
+      - images
+      - in_season
+      - is_available
+      - is_organic
+      - is_purchasable
+      - is_seasonal
+      - min_order_quantity
+      - name
+      - origin
+      - price
+      - primary_image
+      - producer
+      - published_at
+      - review_count
+      - slug
+      - stock_quantity
+      - subcategory
+      - unit
+    ProductImage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+        alt_text:
+          type: string
+          maxLength: 200
+        position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        width:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        height:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+      required:
+      - alt_text
+      - height
+      - id
+      - position
+      - url
+      - width
+    ProductImageRequest:
+      type: object
+      properties:
+        alt_text:
+          type: string
+          maxLength: 200
+        position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        width:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        height:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+    ProductList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        slug:
+          type: string
+          maxLength: 180
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          maxLength: 160
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryBrief'
+          readOnly: true
+        subcategory:
+          allOf:
+          - $ref: '#/components/schemas/CategoryBrief'
+          readOnly: true
+          nullable: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerBrief'
+          readOnly: true
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          maxLength: 3
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        stock_quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Units available to sell.
+        min_order_quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        origin:
+          type: string
+          description: Where it was grown or produced.
+          maxLength: 160
+        is_seasonal:
+          type: boolean
+        is_available:
+          type: boolean
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+        in_season:
+          type: boolean
+          readOnly: true
+        is_purchasable:
+          type: boolean
+          readOnly: true
+        primary_image:
+          allOf:
+          - $ref: '#/components/schemas/ProductImage'
+          nullable: true
+          readOnly: true
+        average_rating:
+          type: number
+          format: double
+          nullable: true
+          readOnly: true
+        review_count:
+          type: integer
+          readOnly: true
+          default: 0
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - average_rating
+      - category
+      - currency
+      - id
+      - in_season
+      - is_available
+      - is_organic
+      - is_purchasable
+      - is_seasonal
+      - min_order_quantity
+      - name
+      - origin
+      - price
+      - primary_image
+      - producer
+      - published_at
+      - review_count
+      - slug
+      - stock_quantity
+      - subcategory
+      - unit
+    ProductListRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 180
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        stock_quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Units available to sell.
+        min_order_quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        origin:
+          type: string
+          minLength: 1
+          description: Where it was grown or produced.
+          maxLength: 160
+        is_seasonal:
+          type: boolean
+        is_available:
+          type: boolean
+          description: Untick to mark as currently unavailable.
+        is_organic:
+          type: boolean
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - name
+      - origin
+      - price
+      - slug
+      - unit
+    ProductRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+      - id
+      - name
+      - slug
+    ProductStatusEnum:
+      enum:
+      - DRAFT
+      - PUBLISHED
+      - UNPUBLISHED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `PUBLISHED` - Published
+        * `UNPUBLISHED` - Unpublished
+    ProductViewRequest:
+      type: object
+      properties:
+        product:
+          type: string
+          minLength: 1
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - product
+    RegistrationResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - detail
+      - user
+    ReplyRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+      required:
+      - message
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product_slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        product_name:
+          type: string
+          readOnly: true
+        reviewer:
+          type: string
+          readOnly: true
+        rating:
+          type: integer
+          maximum: 5
+          minimum: 1
+        comment:
+          type: string
+          default: ''
+          maxLength: 2000
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - comment
+      - created_at
+      - id
+      - product_name
+      - product_slug
+      - rating
+      - reviewer
+      - updated_at
+    ReviewCreate:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product_slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        product_name:
+          type: string
+          readOnly: true
+        reviewer:
+          type: string
+          readOnly: true
+        rating:
+          type: integer
+          maximum: 5
+          minimum: 1
+        comment:
+          type: string
+          default: ''
+          maxLength: 2000
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - comment
+      - created_at
+      - id
+      - product_name
+      - product_slug
+      - rating
+      - reviewer
+      - updated_at
+    ReviewCreateRequest:
+      type: object
+      properties:
+        rating:
+          type: integer
+          maximum: 5
+          minimum: 1
+        comment:
+          type: string
+          default: ''
+          maxLength: 2000
+        product:
+          type: string
+          writeOnly: true
+          minLength: 1
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - product
+      - rating
+    RoleEnum:
+      enum:
+      - CONSUMER
+      - PRODUCER
+      - ADMIN
+      type: string
+      description: |-
+        * `CONSUMER` - Consumer
+        * `PRODUCER` - Producer
+        * `ADMIN` - Admin
+    Session:
+      type: object
+      description: Returned by login, refresh and password change. The refresh token
+        is set as an HttpOnly cookie.
+      properties:
+        access:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - access
+      - user
+    Shipping:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+      required:
+      - city
+      - country
+      - district
+      - line1
+      - line2
+      - name
+      - phone
+      - postal_code
+      - state
+    StatusEvent:
+      type: object
+      properties:
+        from_status:
+          type: string
+          maxLength: 16
+        to_status:
+          type: string
+          maxLength: 16
+        actor_role:
+          type: string
+          maxLength: 10
+        note:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - actor_role
+      - created_at
+      - from_status
+      - note
+      - to_status
+    StrategyEnum:
+      enum:
+      - multipart
+      - presigned-post
+      type: string
+      description: |-
+        * `multipart` - multipart
+        * `presigned-post` - presigned-post
+    SuspendRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - reason
+    TransitionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/FulfillmentStatusEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 1000
+      required:
+      - status
+    UnitEnum:
+      enum:
+      - kg
+      - g
+      - litre
+      - ml
+      - dozen
+      - piece
+      - bunch
+      - pack
+      - box
+      type: string
+      description: |-
+        * `kg` - Kilogram
+        * `g` - Gram
+        * `litre` - Litre
+        * `ml` - Millilitre
+        * `dozen` - Dozen
+        * `piece` - Piece
+        * `bunch` - Bunch
+        * `pack` - Pack
+        * `box` - Box
+    UploadConfirmRequest:
+      type: object
+      properties:
+        upload_id:
+          type: string
+          format: uuid
+        alt_text:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - upload_id
+    UploadRequestRequest:
+      type: object
+      properties:
+        content_type:
+          $ref: '#/components/schemas/ContentTypeEnum'
+        size:
+          type: integer
+          minimum: 1
+      required:
+      - content_type
+      - size
+    UploadTicket:
+      type: object
+      properties:
+        strategy:
+          $ref: '#/components/schemas/StrategyEnum'
+        url:
+          type: string
+        upload_id:
+          type: string
+          format: uuid
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - fields
+      - strategy
+      - upload_id
+      - url
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        phone_number:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        email_verified:
+          type: boolean
+          readOnly: true
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+        producer:
+          allOf:
+          - $ref: '#/components/schemas/ProducerSummary'
+          nullable: true
+          readOnly: true
+      required:
+      - date_joined
+      - email
+      - email_verified
+      - full_name
+      - id
+      - phone_number
+      - producer
+      - role
+    VerificationDecisionDecisionEnum:
+      enum:
+      - VERIFIED
+      - REJECTED
+      type: string
+      description: |-
+        * `VERIFIED` - VERIFIED
+        * `REJECTED` - REJECTED
+    VerificationDecisionRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/VerificationDecisionDecisionEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 2000
+      required:
+      - decision
+    VerificationStatusEnum:
+      enum:
+      - PENDING
+      - VERIFIED
+      - REJECTED
+      type: string
+      description: |-
+        * `PENDING` - Pending review
+        * `VERIFIED` - Verified
+        * `REJECTED` - Rejected
+    VerifyEmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - code
+      - email
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

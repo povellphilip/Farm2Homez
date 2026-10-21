@@ -10,7 +10,7 @@ from rest_framework.response import Response
 
 from apps.core.permissions import IsProducer
 
-from . import services
+from . import services, uploads
 from .models import Category, Product, ProductImage
 from .serializers import (
     CategorySerializer,
@@ -20,6 +20,9 @@ from .serializers import (
     ProductDetailSerializer,
     ProductImageSerializer,
     ProductListSerializer,
+    UploadConfirmSerializer,
+    UploadRequestSerializer,
+    UploadTicketSerializer,
 )
 
 
@@ -113,7 +116,7 @@ class ProducerProductViewSet(viewsets.ModelViewSet):
         )
 
     def get_throttles(self):
-        if self.action == 'upload_image':
+        if self.action in ('upload_image', 'upload_url', 'confirm_upload'):
             self.throttle_scope = 'upload'
         return super().get_throttles()
 
@@ -145,6 +148,22 @@ class ProducerProductViewSet(viewsets.ModelViewSet):
         serializer = ImageUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         image = services.add_image(product, serializer.validated_data['image'], serializer.validated_data['alt_text'])
+        return Response(ProductImageSerializer(image).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=UploadRequestSerializer, responses=UploadTicketSerializer)
+    @action(detail=True, methods=['post'], url_path='images/upload-url')
+    def upload_url(self, request, pk=None):
+        """Start an image upload. Returns either a presigned S3 POST or the multipart endpoint to use."""
+        serializer = UploadRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(uploads.request_upload(self.get_object(), **serializer.validated_data))
+
+    @extend_schema(request=UploadConfirmSerializer, responses={201: ProductImageSerializer})
+    @action(detail=True, methods=['post'], url_path='images/confirm')
+    def confirm_upload(self, request, pk=None):
+        serializer = UploadConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        image = uploads.confirm_upload(self.get_object(), serializer.validated_data['upload_id'], serializer.validated_data['alt_text'])
         return Response(ProductImageSerializer(image).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=None, responses={204: None})

@@ -1,17 +1,22 @@
 from decimal import Decimal
+from pathlib import Path
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
 
 from apps.accounts.models import Role, User
 from apps.core.utils import unique_slug
 from apps.producers.models import ProducerProfile, VerificationStatus
+from apps.products import services as product_services
 from apps.products.catalog_data import install_default_categories
 from apps.products.models import Category, ModerationStatus, Product, ProductStatus
 
 DEMO_PASSWORD = 'FarmDemo2026'
+IMAGE_DIR = Path(settings.BASE_DIR) / 'demo_data' / 'images'
 
 PRODUCERS = [
     {
@@ -132,12 +137,13 @@ class Command(BaseCommand):
                     'moderation_status': ModerationStatus.APPROVED,
                     'published_at': timezone.now(),
                 }
-                Product.objects.update_or_create(
+                product, _ = Product.objects.update_or_create(
                     producer=profile,
                     name=name,
                     defaults=fields,
                     create_defaults={**fields, 'slug': unique_slug(Product, f'{name} {profile.farm_name}', max_length=180)},
                 )
+                self._attach_photo(product)
         self._producer(PENDING_PRODUCER, VerificationStatus.PENDING)
 
         for email, name, phone in CONSUMERS:
@@ -150,6 +156,13 @@ class Command(BaseCommand):
             f'Demo data ready: {Product.objects.count()} products, {ProducerProfile.objects.count()} producers. '
             f'Password for every demo account: {DEMO_PASSWORD}'
         ))
+
+    def _attach_photo(self, product):
+        """Attach the bundled demo photo (see demo_data/CREDITS.md) through the normal image pipeline."""
+        photo = IMAGE_DIR / f'{slugify(product.name)}.jpg'
+        if product.images.exists() or not photo.exists():
+            return
+        product_services.add_image(product, ContentFile(photo.read_bytes(), name=photo.name), product.name)
 
     def _user(self, email, full_name, phone, role):
         user, created = User.objects.get_or_create(

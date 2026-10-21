@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-ivory-50 font-sans text-charcoal-800 antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display text-charcoal-900;
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-forest-600;
+  }
+
+  ::selection {
+    @apply bg-sage-200 text-charcoal-900;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply mx-auto w-full max-w-page px-4 sm:px-6 lg:px-8;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-forest-600;
+  }
+
+  .prose-farm p {
+    @apply mt-4 leading-7 text-charcoal-600;
+  }
+
+  .prose-farm h2 {
+    @apply mt-10 text-2xl;
+  }
+
+  .prose-farm ul {
+    @apply mt-4 list-disc space-y-2 pl-5 leading-7 text-charcoal-600;
+  }
+}

@@ -20,7 +20,7 @@ class ProductRefSerializer(serializers.Serializer):
 
 
 class InquirySerializer(serializers.ModelSerializer):
-    producer = ProducerBriefSerializer(read_only=True)
+    producer = ProducerBriefSerializer(read_only=True, allow_null=True)
     product = serializers.SerializerMethodField()
     replies = InquiryReplySerializer(many=True, read_only=True)
 

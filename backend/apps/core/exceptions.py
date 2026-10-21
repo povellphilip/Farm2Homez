@@ -55,8 +55,11 @@ def api_exception_handler(exc, context):
         if response.status_code == status.HTTP_401_UNAUTHORIZED and code in ('token_not_valid', 'user_not_found'):
             code = 'token_invalid'
         body = {'code': str(code), 'message': str(detail), 'errors': {}}
-        if isinstance(exc, exceptions.Throttled) and exc.wait is not None:
-            body['retry_after'] = int(exc.wait)
+        if isinstance(exc, exceptions.Throttled):
+            wait = int(exc.wait or 0)
+            body['message'] = f'Too many attempts. Please wait {wait} seconds and try again.' if wait else 'Too many attempts. Please try again shortly.'
+            if exc.wait is not None:
+                body['retry_after'] = wait
 
     response.data = body
     return response

@@ -8,3 +8,7 @@ dist/
 db.sqlite3
 staticfiles/
 media/
+
+# Playwright
+test-results/
+playwright-report/

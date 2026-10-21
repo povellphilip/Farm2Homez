@@ -61,7 +61,7 @@ def _primary_image(product):
 
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategoryBriefSerializer(read_only=True)
-    subcategory = CategoryBriefSerializer(read_only=True)
+    subcategory = CategoryBriefSerializer(read_only=True, allow_null=True)
     producer = ProducerBriefSerializer(read_only=True)
     primary_image = serializers.SerializerMethodField()
     is_purchasable = serializers.BooleanField(read_only=True)
@@ -158,3 +158,20 @@ class ImageUploadSerializer(serializers.Serializer):
 
 class ImageOrderSerializer(serializers.Serializer):
     image_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+
+
+class UploadRequestSerializer(serializers.Serializer):
+    content_type = serializers.ChoiceField(choices=['image/jpeg', 'image/png', 'image/webp'])
+    size = serializers.IntegerField(min_value=1)
+
+
+class UploadTicketSerializer(serializers.Serializer):
+    strategy = serializers.ChoiceField(choices=['multipart', 'presigned-post'])
+    url = serializers.CharField()
+    upload_id = serializers.UUIDField(required=False)
+    fields = serializers.DictField(child=serializers.CharField(), required=False)
+
+
+class UploadConfirmSerializer(serializers.Serializer):
+    upload_id = serializers.UUIDField()
+    alt_text = serializers.CharField(required=False, allow_blank=True, default='', max_length=200)

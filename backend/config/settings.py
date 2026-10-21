@@ -207,7 +207,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '1000/hour',
         'user': '5000/hour',
-        'auth_login': '10/min',
+        # Overridable for automated end-to-end runs, which sign in many times a minute.
+        'auth_login': config('AUTH_LOGIN_RATE', default='10/min'),
         'auth_register': '10/hour',
         'auth_code': '10/hour',
         'auth_refresh': '60/min',
@@ -231,6 +232,10 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '2.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'apps.core.schema.mark_response_fields_required',
+    ],
     'ENUM_NAME_OVERRIDES': {
         'FulfillmentStatusEnum': 'apps.orders.models.FulfillmentStatus',
         'OrderStatusEnum': 'apps.orders.models.OrderStatus',
@@ -286,6 +291,34 @@ STORAGES = {
         )
     },
 }
+
+# Product images: local disk in development, Amazon S3 in production. On AWS the
+# credentials come from the service's IAM role; never put access keys in settings.
+STORAGE_BACKEND = config('STORAGE_BACKEND', default='local')  # local | s3
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
+AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='ap-south-1')
+# CloudFront domain that serves the bucket's public prefix, e.g. media.farm2home.example
+MEDIA_CDN_DOMAIN = config('MEDIA_CDN_DOMAIN', default='')
+# Browser uploads go to this prefix and are deleted once processed (plus a lifecycle rule).
+S3_UPLOAD_PREFIX = 'uploads/'
+UPLOAD_URL_EXPIRY_SECONDS = 300
+if STORAGE_BACKEND == 's3':
+    if not AWS_STORAGE_BUCKET_NAME:
+        raise ImproperlyConfigured('STORAGE_BACKEND=s3 requires AWS_STORAGE_BUCKET_NAME.')
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': AWS_STORAGE_BUCKET_NAME,
+            'region_name': AWS_S3_REGION_NAME,
+            'custom_domain': MEDIA_CDN_DOMAIN or None,
+            'querystring_auth': not MEDIA_CDN_DOMAIN,  # signed URLs only when there is no CDN in front
+            'default_acl': None,  # the bucket stays private; CloudFront reads it via origin access control
+            'file_overwrite': False,
+            'object_parameters': {'CacheControl': 'public, max-age=31536000, immutable'},
+        },
+    }
+elif STORAGE_BACKEND != 'local':
+    raise ImproperlyConfigured('STORAGE_BACKEND must be "local" or "s3".')
 
 # ---------------------------------------------------------------------------
 # Email
