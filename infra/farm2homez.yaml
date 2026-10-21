@@ -526,6 +526,7 @@ Resources:
             TOKEN=$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
             PRIVATE_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
             SITE=${Distribution.DomainName}
+            set +x # keep secrets out of the setup log
             DB_PASSWORD=$(param db-password)
             if [ -z "$DB_PASSWORD" ]; then
               echo "ERROR: could not read ${SsmPrefix}/db-password from SSM Parameter Store (re-run deploy.sh with PLAIN_PARAMS=1)"
@@ -557,6 +558,8 @@ Resources:
             GUNICORN_THREADS=2
             ENVFILE
             chmod 600 "$APP/.env"
+            echo "Wrote $APP/.env"
+            set -x
             chown -R farm2homez:farm2homez /opt/farm2homez /var/log/farm2homez
 
             # Database schema, cache table, static files, demo data
