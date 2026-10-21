@@ -14,7 +14,7 @@ STATIC_PATHS = ['/', '/products', '/farms', '/about', '/faq', '/contact', '/priv
 
 @cache_page(60 * 60)
 def sitemap(request):
-    base = settings.FRONTEND_URL.rstrip('/')
+    base = (settings.FRONTEND_URL or request.build_absolute_uri('/')).rstrip('/')
     entries = [(path, None) for path in STATIC_PATHS]
     entries += [(f'/categories/{slug}', None) for slug in Category.objects.filter(is_active=True).values_list('slug', flat=True)]
     entries += [

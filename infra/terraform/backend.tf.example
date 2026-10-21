@@ -1,0 +1,13 @@
+# Remote Terraform state. Copy to backend.tf after creating the bucket and lock table once
+# (commands in context/AWS_SETUP.md, step 2). The state contains generated secrets such as the
+# database password, so the bucket must stay private, encrypted and versioned.
+
+terraform {
+  backend "s3" {
+    bucket         = "farm2home-terraform-state-<your-account-id>"
+    key            = "prod/terraform.tfstate"
+    region         = "ap-south-1"
+    dynamodb_table = "farm2home-terraform-locks"
+    encrypt        = true
+  }
+}

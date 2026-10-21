@@ -1,0 +1,92 @@
+name: Deploy
+
+# Runs after CI passes on main, or manually. Needs the AWS resources from infra/terraform and
+# these repository secrets (values come from `terraform output`):
+#   AWS_DEPLOY_ROLE_ARN, AWS_REGION, ECR_REPOSITORY_URL, APPRUNNER_SERVICE_ARN,
+#   FRONTEND_BUCKET, CLOUDFRONT_DISTRIBUTION_ID, SITE_URL
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC: exchange the GitHub token for the deploy role, no stored AWS keys
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the API image
+        working-directory: backend
+        env:
+          REPOSITORY: ${{ secrets.ECR_REPOSITORY_URL }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          docker build -t "$REPOSITORY:$SHA" -t "$REPOSITORY:latest" .
+          docker push "$REPOSITORY:$SHA"
+          docker push "$REPOSITORY:latest"   # App Runner deploys :latest automatically
+
+      - name: Wait for App Runner to finish deploying
+        env:
+          SERVICE_ARN: ${{ secrets.APPRUNNER_SERVICE_ARN }}
+        run: |
+          for attempt in $(seq 1 60); do
+            status=$(aws apprunner describe-service --service-arn "$SERVICE_ARN" --query 'Service.Status' --output text)
+            echo "App Runner status: $status"
+            if [ "$status" = "RUNNING" ] && [ "$attempt" -gt 3 ]; then exit 0; fi
+            if [ "$status" = "OPERATION_IN_PROGRESS" ] || [ "$attempt" -le 3 ]; then sleep 20; continue; fi
+            echo "Unexpected status $status"; exit 1
+          done
+          echo "Timed out waiting for the deployment"; exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the website
+        working-directory: frontend
+        env:
+          VITE_SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload the website and refresh the CDN
+        working-directory: frontend
+        env:
+          BUCKET: ${{ secrets.FRONTEND_BUCKET }}
+          DISTRIBUTION: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          # Hashed assets are immutable; everything else must revalidate.
+          aws s3 sync dist/assets "s3://$BUCKET/assets" --cache-control "public,max-age=31536000,immutable" --delete
+          aws s3 sync dist "s3://$BUCKET" --exclude "assets/*" --exclude "*.map" --cache-control "public,max-age=0,must-revalidate" --delete
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/index.html" "/robots.txt" "/" > /dev/null
+
+      - name: Smoke test
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          curl --fail --silent --show-error "$SITE_URL/api/health/" && echo
+          curl --fail --silent --show-error --output /dev/null "$SITE_URL/"

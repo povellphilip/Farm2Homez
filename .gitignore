@@ -12,3 +12,11 @@ media/
 # Playwright
 test-results/
 playwright-report/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+crash.log

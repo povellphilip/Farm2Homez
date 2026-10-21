@@ -175,3 +175,23 @@ def test_create_admin_command(db, monkeypatch):
     assert admin.role == Role.ADMIN and admin.email_verified and not admin.is_superuser
     assert AuditLog.objects.filter(action='admin.provisioned').exists()
     assert settings.REFRESH_COOKIE_NAME  # sanity
+
+
+def test_create_admin_if_missing_is_idempotent(db, monkeypatch):
+    from django.core.management import call_command
+
+    from apps.accounts.models import User
+
+    monkeypatch.setenv('F2H_ADMIN_PASSWORD', 'Str0ngAdminPass')
+    call_command('create_admin', email='boot@example.com', if_missing=True)
+    call_command('create_admin', email='boot@example.com', if_missing=True)
+    assert User.objects.filter(email='boot@example.com', role=Role.ADMIN).count() == 1
+
+
+def test_create_admin_if_missing_needs_password(db, monkeypatch):
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    monkeypatch.delenv('F2H_ADMIN_PASSWORD', raising=False)
+    with pytest.raises(CommandError, match='F2H_ADMIN_PASSWORD'):
+        call_command('create_admin', email='boot2@example.com', if_missing=True)

@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored; it holds no secrets,
+# but keep it out of the repository anyway.
+
+aws_region  = "ap-south-1"
+environment = "prod"
+
+# Leave both empty to start on the free CloudFront address (https://dxxxx.cloudfront.net).
+domain_name     = ""
+route53_zone_id = ""
+
+alarm_email              = "you@example.com"
+from_email               = "no-reply@example.com"
+admin_notification_email = "you@example.com"
+monthly_budget_usd       = 60
+
+# Cost levers (see context/AWS_SETUP.md)
+db_instance_class  = "db.t4g.micro"
+db_multi_az        = false
+enable_nat_gateway = true
+
+# GitHub repository allowed to deploy (owner/name). Leave empty to deploy manually.
+github_repository = ""

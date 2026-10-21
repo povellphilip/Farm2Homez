@@ -26,8 +26,8 @@ def s3(settings, monkeypatch):
         settings.STORAGES = {
             **settings.STORAGES,
             'default': {
-                'BACKEND': 'storages.backends.s3.S3Storage',
-                'OPTIONS': {'bucket_name': BUCKET, 'region_name': 'ap-south-1', 'custom_domain': 'media.example.com', 'querystring_auth': False},
+                'BACKEND': 'apps.core.storage.MediaStorage',
+                'OPTIONS': {'bucket_name': BUCKET, 'region_name': 'ap-south-1', 'location': 'media', 'default_acl': None},
             },
         }
         field = ProductImage._meta.get_field('image')
@@ -65,10 +65,11 @@ def test_presigned_upload_round_trip(product, s3):
 
     response = client.post(f'/api/producers/me/products/{product.pk}/images/confirm/', {'upload_id': ticket['upload_id'], 'alt_text': 'Hass avocados'})
     assert response.status_code == 201, response.data
-    assert response.data['url'].startswith('https://media.example.com/products/')
+    # Same-origin URL; CloudFront maps /media/* to the bucket's media/ prefix.
+    assert response.data['url'].startswith(f'/media/products/{product.pk}/')
     image = ProductImage.objects.get()
     keys = {obj['Key'] for obj in s3.list_objects_v2(Bucket=BUCKET).get('Contents', [])}
-    assert image.image.name in keys
+    assert f'media/{image.image.name}' in keys
     assert key not in keys  # raw upload removed
 
     again = client.post(f'/api/producers/me/products/{product.pk}/images/confirm/', {'upload_id': ticket['upload_id']})
@@ -108,6 +109,15 @@ def test_ticket_validation(product, settings):
     assert response.data['code'] == 'image_too_large'
 
 
+def test_signed_urls_when_no_public_base(product, s3, settings):
+    settings.MEDIA_PUBLIC_BASE = ''
+    client = as_user(product.producer.user)
+    ticket = client.post(ticket_url(product), {'content_type': 'image/jpeg', 'size': 100}).data
+    s3.put_object(Bucket=BUCKET, Key=ticket['fields']['key'], Body=image_file().read(), ContentType='image/jpeg')
+    url = client.post(f'/api/producers/me/products/{product.pk}/images/confirm/', {'upload_id': ticket['upload_id']}).data['url']
+    assert 'X-Amz-Signature' in url or 'Signature=' in url
+
+
 def test_sitemap_lists_public_pages_only(api, product, categories, settings):
     settings.FRONTEND_URL = 'https://farm2home.example'
     hidden = make_producer(verified=False)
@@ -118,3 +128,9 @@ def test_sitemap_lists_public_pages_only(api, product, categories, settings):
     assert f'/farms/{product.producer.slug}' in body
     assert hidden.producer_profile.slug not in body
     assert '/categories/fruits' in body
+
+
+def test_sitemap_falls_back_to_request_host(api, product, settings):
+    settings.FRONTEND_URL = ''
+    body = api.get('/api/seo/sitemap.xml').content.decode()
+    assert f'<loc>http://testserver/products/{product.slug}</loc>' in body

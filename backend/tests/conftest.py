@@ -24,6 +24,16 @@ def _isolated_media(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path / 'media'
 
 
+@pytest.fixture(autouse=True)
+def _fresh_cache():
+    # Cached pages (sitemap) and throttle counters must not leak between tests.
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
 @pytest.fixture
 def api():
     return APIClient()

@@ -30,8 +30,19 @@ SECRET_KEY = config('SECRET_KEY', default='' if IS_PRODUCTION else _DEV_SECRET)
 if IS_PRODUCTION and (not SECRET_KEY or SECRET_KEY == _DEV_SECRET):
     raise ImproperlyConfigured('SECRET_KEY must be set in production.')
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,testserver', cast=Csv())
-FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+def _csv(name, default=''):
+    """Comma-separated setting with blank entries dropped."""
+    return [item for item in config(name, default=default, cast=Csv()) if item]
+
+
+ALLOWED_HOSTS = _csv('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver')
+# Public site address for absolute links (sitemap). Empty means "derive it from the request".
+FRONTEND_URL = config('FRONTEND_URL', default='' if IS_PRODUCTION else 'http://localhost:5173')
+
+# Shared secret CloudFront adds to every request it forwards (X-Origin-Verify). When set,
+# requests without it are refused and the forwarded viewer host is trusted.
+ORIGIN_VERIFY_SECRET = config('ORIGIN_VERIFY_SECRET', default='')
+USE_X_FORWARDED_HOST = bool(ORIGIN_VERIFY_SECRET)
 
 # ---------------------------------------------------------------------------
 # Applications
@@ -63,6 +74,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'apps.core.middleware.OriginVerifyMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -252,9 +264,9 @@ SPECTACULAR_SETTINGS = {
 # production CloudFront serves the SPA and /api from one domain, so the browser
 # normally makes same-origin requests. CORS stays available for other setups.
 # ---------------------------------------------------------------------------
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://127.0.0.1:5173', cast=Csv())
+CORS_ALLOWED_ORIGINS = _csv('CORS_ALLOWED_ORIGINS', '' if IS_PRODUCTION else 'http://localhost:5173,http://127.0.0.1:5173')
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173,http://127.0.0.1:5173', cast=Csv())
+CSRF_TRUSTED_ORIGINS = _csv('CSRF_TRUSTED_ORIGINS', '' if IS_PRODUCTION else 'http://localhost:5173,http://127.0.0.1:5173')
 CSRF_COOKIE_HTTPONLY = False  # the SPA reads it and echoes it in X-CSRFToken
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
@@ -297,8 +309,11 @@ STORAGES = {
 STORAGE_BACKEND = config('STORAGE_BACKEND', default='local')  # local | s3
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
 AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='ap-south-1')
-# CloudFront domain that serves the bucket's public prefix, e.g. media.farm2home.example
-MEDIA_CDN_DOMAIN = config('MEDIA_CDN_DOMAIN', default='')
+# Objects are stored under this prefix; CloudFront serves it at /media/* on the site domain.
+AWS_MEDIA_LOCATION = 'media'
+# Base for public media URLs. '/media/' gives same-origin relative URLs through CloudFront;
+# an absolute CDN URL also works; empty falls back to short-lived signed S3 URLs.
+MEDIA_PUBLIC_BASE = config('MEDIA_PUBLIC_BASE', default='/media/')
 # Browser uploads go to this prefix and are deleted once processed (plus a lifecycle rule).
 S3_UPLOAD_PREFIX = 'uploads/'
 UPLOAD_URL_EXPIRY_SECONDS = 300
@@ -306,12 +321,12 @@ if STORAGE_BACKEND == 's3':
     if not AWS_STORAGE_BUCKET_NAME:
         raise ImproperlyConfigured('STORAGE_BACKEND=s3 requires AWS_STORAGE_BUCKET_NAME.')
     STORAGES['default'] = {
-        'BACKEND': 'storages.backends.s3.S3Storage',
+        'BACKEND': 'apps.core.storage.MediaStorage',
         'OPTIONS': {
             'bucket_name': AWS_STORAGE_BUCKET_NAME,
             'region_name': AWS_S3_REGION_NAME,
-            'custom_domain': MEDIA_CDN_DOMAIN or None,
-            'querystring_auth': not MEDIA_CDN_DOMAIN,  # signed URLs only when there is no CDN in front
+            'location': AWS_MEDIA_LOCATION,
+            'querystring_auth': True,  # only used when MEDIA_PUBLIC_BASE is empty
             'default_acl': None,  # the bucket stays private; CloudFront reads it via origin access control
             'file_overwrite': False,
             'object_parameters': {'CacheControl': 'public, max-age=31536000, immutable'},
