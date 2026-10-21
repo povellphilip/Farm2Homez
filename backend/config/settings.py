@@ -33,6 +33,12 @@ CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
+# Product image storage: 's3' on AWS (needs AWS_MEDIA_BUCKET), otherwise Cloudinary
+AWS_REGION = config('AWS_REGION', default='us-east-1')
+AWS_MEDIA_BUCKET = config('AWS_MEDIA_BUCKET', default='')
+MEDIA_BASE_URL = config('MEDIA_BASE_URL', default='')
+IMAGE_STORAGE_PROVIDER = config('IMAGE_STORAGE_PROVIDER', default='s3' if AWS_MEDIA_BUCKET else 'cloudinary')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -40,8 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'cloudinary_storage',
-    'cloudinary',
+    *(['cloudinary_storage', 'cloudinary'] if IMAGE_STORAGE_PROVIDER == 'cloudinary' else []),
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
@@ -119,10 +124,19 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# STATICFILES_STORAGE / DEFAULT_FILE_STORAGE were removed in Django 5.1; STORAGES replaces them
+STORAGES = {
+    'default': {
+        'BACKEND': (
+            'cloudinary_storage.storage.MediaCloudinaryStorage'
+            if IMAGE_STORAGE_PROVIDER == 'cloudinary'
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
+    },
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'accounts.User'
 AUTHENTICATION_BACKENDS = [
@@ -180,8 +194,14 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour'
-    }
+    },
+    # Behind CloudFront + ALB the real client IP is in X-Forwarded-For (2 proxies)
+    'NUM_PROXIES': config('NUM_PROXIES', default=None, cast=lambda v: int(v) if v not in (None, '') else None),
 }
+
+# django-ratelimit must also see the client IP rather than the load balancer's
+RATELIMIT_IP_META_KEY = 'utils.client_ip.get_client_ip'
+SILENCED_SYSTEM_CHECKS = ['django_ratelimit.W001']
 
 SIMPLE_JWT = {
     'SIGNING_KEY': config('JWT_SECRET', default=SECRET_KEY),
@@ -195,10 +215,15 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',
 }
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+# Without SMTP credentials, emails (including OTP codes) are written to the app log instead
+EMAIL_BACKEND = config(
+    'EMAIL_BACKEND',
+    default='django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST_USER
+    else 'django.core.mail.backends.console.EmailBackend',
+)
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='no-reply@farm2homez.com')
@@ -213,16 +238,22 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
 }
 
-REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+# Redis when REDIS_URL is set; otherwise a database-backed cache shared by every app server
+# (run `python manage.py createcachetable` once)
+REDIS_URL = config('REDIS_URL', default='')
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': REDIS_URL,
-    }
+    'default': (
+        {'BACKEND': 'django.core.cache.backends.redis.RedisCache', 'LOCATION': REDIS_URL}
+        if REDIS_URL
+        else {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'django_cache'}
+    )
 }
 
-CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/1')
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/2')
+# With no broker configured, Celery tasks run inline in the web request
+CELERY_TASK_ALWAYS_EAGER = not config('CELERY_BROKER_URL', default='')
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='memory://')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='')
+CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_IGNORE_RESULT = True
 OTP_EXPIRY_SECONDS = 600
 

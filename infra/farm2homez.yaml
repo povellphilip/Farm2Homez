@@ -1,0 +1,758 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Farm2Homez on AWS - React frontend on S3 + CloudFront, Django API on EC2 Auto Scaling
+  behind an Application Load Balancer, PostgreSQL on RDS, product images on S3,
+  monitoring with CloudWatch + SNS. Sized for the AWS Academy sandbox (us-east-1, LabRole).
+
+Parameters:
+  ArtifactBucket:
+    Type: String
+    Description: S3 bucket holding the packaged backend (created by infra/deploy.sh)
+  BackendPackageKey:
+    Type: String
+    Default: backend/backend.tar.gz
+  BackendVersion:
+    Type: String
+    Description: Changes on every deploy so instances are replaced with the new code
+  CloudFrontPrefixListId:
+    Type: String
+    Description: Managed prefix list com.amazonaws.global.cloudfront.origin-facing (ALB only accepts CloudFront)
+  SsmPrefix:
+    Type: String
+    Default: /farm2homez
+    Description: Parameter Store path holding the app secrets
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    AllowedPattern: '[A-Za-z0-9]+'
+    Description: RDS master password (generated and stored in Parameter Store by deploy.sh)
+  DBEngineVersion:
+    Type: String
+    Default: '17.6'
+    Description: PostgreSQL version (deploy.sh passes AWS's current default 17.x)
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.micro, t3.small, t3.medium]
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    AllowedValues: [db.t3.micro, db.t3.small]
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Optional email address for CloudWatch alarm notifications
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+
+Resources:
+  # ---------------------------------------------------------------- Network
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{Key: Name, Value: farm2homez-vpc}]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{Key: Name, Value: farm2homez-igw}]
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: farm2homez-public-a}]
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: farm2homez-public-b}]
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{Key: Name, Value: farm2homez-private-a}]
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{Key: Name, Value: farm2homez-private-b}]
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: farm2homez-public-rt}]
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetARouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetBRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private subnets have no internet route at all (no NAT gateway: saves ~$32/month)
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{Key: Name, Value: farm2homez-private-rt}]
+
+  PrivateSubnetARouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetBRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Free gateway endpoint: S3 traffic from the app servers stays on the AWS network
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      RouteTableIds: [!Ref PublicRouteTable, !Ref PrivateRouteTable]
+
+  # ---------------------------------------------------------------- Security groups
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Load balancer - HTTP from CloudFront edge locations only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !Ref CloudFrontPrefixListId
+      Tags: [{Key: Name, Value: farm2homez-alb-sg}]
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App servers - gunicorn port from the load balancer only (no SSH; use Session Manager)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+      Tags: [{Key: Name, Value: farm2homez-app-sg}]
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL from the app servers only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+      Tags: [{Key: Name, Value: farm2homez-db-sg}]
+
+  # ---------------------------------------------------------------- Database
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Farm2Homez private subnets
+      SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks: [W1011] # password is generated by deploy.sh and kept in SSM Parameter Store
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: farm2homez-db
+      Engine: postgres
+      EngineVersion: !Ref DBEngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: '20'
+      StorageType: gp2
+      StorageEncrypted: true
+      DBName: farm2homez
+      MasterUsername: farm2homez
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups: [!Ref DatabaseSecurityGroup]
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      MonitoringInterval: 0
+      EnablePerformanceInsights: false
+      DeletionProtection: false
+
+  # ---------------------------------------------------------------- Storage
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+
+  # Buckets stay private: only this CloudFront distribution may read them
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub ${SiteBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt SiteBucket.Arn, !Sub '${SiteBucket.Arn}/*']
+            Condition:
+              Bool: {aws:SecureTransport: 'false'}
+
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub ${MediaBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt MediaBucket.Arn, !Sub '${MediaBucket.Arn}/*']
+            Condition:
+              Bool: {aws:SecureTransport: 'false'}
+
+  # ---------------------------------------------------------------- Load balancer
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: farm2homez-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+      SecurityGroups: [!Ref AlbSecurityGroup]
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: farm2homez-api
+      VpcId: !Ref Vpc
+      Protocol: HTTP
+      Port: 8000
+      TargetType: instance
+      HealthCheckPath: /api/health/
+      HealthCheckIntervalSeconds: 15
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher: {HttpCode: '200'}
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ---------------------------------------------------------------- CloudFront
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub farm2homez-oac-${AWS::StackName}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # React Router pages (/cart, /products/12) have no file in S3: serve index.html for them
+  SpaRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub farm2homez-spa-rewrite-${AWS::StackName}
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Rewrite extensionless paths to /index.html
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          if (request.uri.indexOf('.') === -1) {
+            request.uri = '/index.html';
+          }
+          return request;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Farm2Homez
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        DefaultRootObject: index.html
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig: {OriginAccessIdentity: ''}
+          - Id: media
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig: {OriginAccessIdentity: ''}
+          - Id: api
+            DomainName: !GetAtt LoadBalancer.DNSName
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+              HTTPPort: 80
+              OriginReadTimeout: 60
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRewriteFunction.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+          - PathPattern: /admin/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          - PathPattern: /static/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          - PathPattern: /media/*
+            TargetOriginId: media
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+  # ---------------------------------------------------------------- App servers
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      LogGroupName: !Sub /farm2homez/${AWS::StackName}/app
+      RetentionInDays: 7
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub farm2homez-app-${AWS::StackName}
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile: {Name: LabInstanceProfile}
+        MetadataOptions: {HttpTokens: required, HttpEndpoint: enabled}
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs: {VolumeSize: 16, VolumeType: gp2, DeleteOnTermination: true}
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: true
+            Groups: [!Ref AppSecurityGroup]
+        TagSpecifications:
+          - ResourceType: instance
+            Tags: [{Key: Name, Value: farm2homez-app}]
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            # Backend version: ${BackendVersion}
+            set -euxo pipefail
+            exec > >(tee -a /var/log/farm2homez-bootstrap.log) 2>&1
+
+            dnf install -y python3.11 python3.11-pip amazon-cloudwatch-agent aws-cfn-bootstrap tar gzip
+            signal() { /opt/aws/bin/cfn-signal -e "$1" --stack ${AWS::StackName} --resource AppAutoScalingGroup --region ${AWS::Region} || true; }
+            trap 'signal 1' ERR
+
+            mkdir -p /var/log/farm2homez
+            cat > /opt/aws/amazon-cloudwatch-agent/etc/farm2homez.json <<'CWCONFIG'
+            {
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      {"file_path": "/var/log/farm2homez-bootstrap.log", "log_group_name": "${AppLogGroup}", "log_stream_name": "{instance_id}/bootstrap"},
+                      {"file_path": "/var/log/farm2homez/app.log", "log_group_name": "${AppLogGroup}", "log_stream_name": "{instance_id}/app"},
+                      {"file_path": "/var/log/farm2homez/access.log", "log_group_name": "${AppLogGroup}", "log_stream_name": "{instance_id}/access"}
+                    ]
+                  }
+                }
+              },
+              "metrics": {
+                "namespace": "Farm2Homez",
+                "append_dimensions": {"AutoScalingGroupName": "${!aws:AutoScalingGroupName}"},
+                "aggregation_dimensions": [["AutoScalingGroupName"]],
+                "metrics_collected": {"mem": {"measurement": ["mem_used_percent"]}, "disk": {"measurement": ["used_percent"], "resources": ["/"]}}
+              }
+            }
+            CWCONFIG
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+              -c file:/opt/aws/amazon-cloudwatch-agent/etc/farm2homez.json
+
+            # Code
+            useradd --system --create-home --home-dir /opt/farm2homez farm2homez || true
+            APP=/opt/farm2homez/app
+            rm -rf "$APP" && mkdir -p "$APP"
+            aws s3 cp s3://${ArtifactBucket}/${BackendPackageKey} /tmp/backend.tar.gz --region ${AWS::Region}
+            tar xzf /tmp/backend.tar.gz -C "$APP"
+            python3.11 -m venv /opt/farm2homez/venv
+            /opt/farm2homez/venv/bin/pip install --quiet --upgrade pip
+            /opt/farm2homez/venv/bin/pip install --quiet -r "$APP/requirements.txt"
+
+            # Configuration: secrets come from SSM Parameter Store via the LabRole instance profile
+            param() { aws ssm get-parameter --region ${AWS::Region} --with-decryption --name "${SsmPrefix}/$1" --query Parameter.Value --output text 2>/dev/null || true; }
+            TOKEN=$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
+            PRIVATE_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
+            SITE=${Distribution.DomainName}
+            cat > "$APP/.env" <<ENVFILE
+            ENVIRONMENT=production
+            DEBUG=False
+            LOG_LEVEL=INFO
+            SECRET_KEY=$(param secret-key)
+            JWT_SECRET=$(param jwt-secret)
+            ALLOWED_HOSTS=$SITE,${LoadBalancer.DNSName},$PRIVATE_IP,localhost
+            FRONTEND_URL=https://$SITE
+            BACKEND_URL=https://$SITE
+            CORS_ALLOWED_ORIGINS=https://$SITE
+            CSRF_TRUSTED_ORIGINS=https://$SITE
+            SECURE_SSL_REDIRECT=False
+            NUM_PROXIES=2
+            DATABASE_URL=postgres://farm2homez:$(param db-password)@${Database.Endpoint.Address}:${Database.Endpoint.Port}/farm2homez
+            AWS_REGION=${AWS::Region}
+            AWS_MEDIA_BUCKET=${MediaBucket}
+            MEDIA_BASE_URL=https://$SITE
+            EMAIL_HOST=smtp.gmail.com
+            EMAIL_HOST_USER=$(param email-user)
+            EMAIL_HOST_PASSWORD=$(param email-password)
+            ADMIN_NOTIFICATION_EMAIL=$(param admin-email)
+            PORT=8000
+            WEB_CONCURRENCY=2
+            GUNICORN_THREADS=2
+            ENVFILE
+            chmod 600 "$APP/.env"
+            chown -R farm2homez:farm2homez /opt/farm2homez /var/log/farm2homez
+
+            # Database schema, cache table, static files, demo data
+            cd "$APP"
+            manage() { sudo -u farm2homez /opt/farm2homez/venv/bin/python manage.py "$@"; }
+            manage migrate --noinput
+            manage createcachetable
+            manage collectstatic --noinput
+            manage seed_database || true
+            manage seed_data || true
+
+            cat > /etc/systemd/system/farm2homez.service <<'UNIT'
+            [Unit]
+            Description=Farm2Homez Django API (gunicorn)
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            User=farm2homez
+            WorkingDirectory=/opt/farm2homez/app
+            ExecStart=/opt/farm2homez/venv/bin/gunicorn config.wsgi:application --config gunicorn.conf.py --access-logfile /var/log/farm2homez/access.log --error-logfile /var/log/farm2homez/app.log --capture-output
+            Restart=always
+            RestartSec=5
+
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+            systemctl daemon-reload
+            systemctl enable --now farm2homez
+
+            for i in $(seq 1 60); do
+              if curl -fs http://localhost:8000/api/health/ > /dev/null; then signal 0; exit 0; fi
+              sleep 5
+            done
+            signal 1
+
+  AppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    CreationPolicy:
+      ResourceSignal: {Count: 1, Timeout: PT25M}
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        WaitOnResourceSignals: true
+        PauseTime: PT25M
+    Properties:
+      AutoScalingGroupName: !Sub farm2homez-app-${AWS::StackName}
+      MinSize: '1'
+      MaxSize: '2'
+      DesiredCapacity: '1'
+      VPCZoneIdentifier: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      TargetGroupARNs: [!Ref TargetGroup]
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 900
+      Tags:
+        - {Key: Name, Value: farm2homez-app, PropagateAtLaunch: true}
+
+  CpuScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AppAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification: {PredefinedMetricType: ASGAverageCPUUtilization}
+        TargetValue: 60
+
+  # ---------------------------------------------------------------- Monitoring
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub farm2homez-alerts-${AWS::StackName}
+
+  AlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref AlertsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  Alb5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub farm2homez-api-5xx-${AWS::StackName}
+      AlarmDescription: API is returning server errors
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions: [{Name: LoadBalancer, Value: !GetAtt LoadBalancer.LoadBalancerFullName}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+
+  UnhealthyHostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub farm2homez-unhealthy-hosts-${AWS::StackName}
+      AlarmDescription: An app server is failing load balancer health checks
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - {Name: LoadBalancer, Value: !GetAtt LoadBalancer.LoadBalancerFullName}
+        - {Name: TargetGroup, Value: !GetAtt TargetGroup.TargetGroupFullName}
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+
+  AppCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub farm2homez-app-cpu-${AWS::StackName}
+      AlarmDescription: App servers are running hot
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions: [{Name: AutoScalingGroupName, Value: !Ref AppAutoScalingGroup}]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref AlertsTopic]
+
+  DatabaseCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub farm2homez-db-cpu-${AWS::StackName}
+      AlarmDescription: Database CPU is high
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions: [{Name: DBInstanceIdentifier, Value: !Ref Database}]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref AlertsTopic]
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub farm2homez-${AWS::StackName}
+      DashboardBody: !Sub
+        - |
+          {
+            "widgets": [
+              {"type": "metric", "x": 0, "y": 0, "width": 12, "height": 6, "properties": {
+                "title": "API requests and errors", "region": "${AWS::Region}", "stat": "Sum", "period": 60,
+                "metrics": [
+                  ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${Alb}"],
+                  [".", "HTTPCode_Target_4XX_Count", ".", "."],
+                  [".", "HTTPCode_Target_5XX_Count", ".", "."]
+                ]}},
+              {"type": "metric", "x": 12, "y": 0, "width": 12, "height": 6, "properties": {
+                "title": "API response time (p90, seconds)", "region": "${AWS::Region}", "stat": "p90", "period": 60,
+                "metrics": [["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${Alb}"]]}},
+              {"type": "metric", "x": 0, "y": 6, "width": 8, "height": 6, "properties": {
+                "title": "App servers CPU %", "region": "${AWS::Region}", "stat": "Average", "period": 60,
+                "metrics": [["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${Asg}"]]}},
+              {"type": "metric", "x": 8, "y": 6, "width": 8, "height": 6, "properties": {
+                "title": "App servers memory %", "region": "${AWS::Region}", "stat": "Average", "period": 60,
+                "metrics": [["Farm2Homez", "mem_used_percent", "AutoScalingGroupName", "${Asg}"]]}},
+              {"type": "metric", "x": 16, "y": 6, "width": 8, "height": 6, "properties": {
+                "title": "Healthy app servers", "region": "${AWS::Region}", "stat": "Minimum", "period": 60,
+                "metrics": [["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", "${Tg}", "LoadBalancer", "${Alb}"]]}},
+              {"type": "metric", "x": 0, "y": 12, "width": 12, "height": 6, "properties": {
+                "title": "Database CPU % and connections", "region": "${AWS::Region}", "stat": "Average", "period": 60,
+                "metrics": [
+                  ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${Db}"],
+                  [".", "DatabaseConnections", ".", ".", {"yAxis": "right"}]
+                ]}},
+              {"type": "metric", "x": 12, "y": 12, "width": 12, "height": 6, "properties": {
+                "title": "CloudFront requests", "region": "us-east-1", "stat": "Sum", "period": 300,
+                "metrics": [["AWS/CloudFront", "Requests", "Region", "Global", "DistributionId", "${Cdn}"]]}},
+              {"type": "log", "x": 0, "y": 18, "width": 24, "height": 6, "properties": {
+                "title": "Recent app errors", "region": "${AWS::Region}",
+                "query": "SOURCE '${Logs}' | fields @timestamp, @logStream, @message | filter @message like /ERROR|Traceback/ | sort @timestamp desc | limit 50"}}
+            ]
+          }
+        - Alb: !GetAtt LoadBalancer.LoadBalancerFullName
+          Tg: !GetAtt TargetGroup.TargetGroupFullName
+          Asg: !Ref AppAutoScalingGroup
+          Db: !Ref Database
+          Cdn: !Ref Distribution
+          Logs: !Ref AppLogGroup
+
+Outputs:
+  WebsiteURL:
+    Description: Open this in your browser
+    Value: !Sub https://${Distribution.DomainName}
+  ApiDocsURL:
+    Value: !Sub https://${Distribution.DomainName}/api/docs/
+  AdminURL:
+    Value: !Sub https://${Distribution.DomainName}/admin/
+  DistributionId:
+    Value: !Ref Distribution
+  SiteBucketName:
+    Value: !Ref SiteBucket
+  MediaBucketName:
+    Value: !Ref MediaBucket
+  LoadBalancerDNS:
+    Value: !GetAtt LoadBalancer.DNSName
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+  AppLogGroupName:
+    Value: !Ref AppLogGroup
+  DashboardURL:
+    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=farm2homez-${AWS::StackName}

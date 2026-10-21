@@ -29,6 +29,7 @@ django-filter==24.3
 drf-spectacular==0.28.0
 
 # Cloud Storage
+boto3==1.35.90
 cloudinary==1.41.0
 django-cloudinary-storage==0.3.0
 

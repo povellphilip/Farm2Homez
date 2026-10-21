@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.accounts.serializers import UserSerializer
-from services.cloudinary_service import upload_product_image
+from services.image_service import upload_product_image
 
 from .models import Product
 

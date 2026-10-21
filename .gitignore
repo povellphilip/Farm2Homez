@@ -8,3 +8,4 @@ dist/
 db.sqlite3
 staticfiles/
 media/
+logs/
